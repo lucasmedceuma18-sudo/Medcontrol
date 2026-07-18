@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MedControl">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c1120">
+<title>MedControl</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #05080f;
+  --surface: #0c1120;
+  --card: #111827;
+  --card2: #1a2540;
+  --border: rgba(100,160,255,0.1);
+  --border2: rgba(100,160,255,0.2);
+  --blue: #3b82f6;
+  --bdim: rgba(59,130,246,0.13);
+  --green: #10b981;
+  --gdim: rgba(16,185,129,0.13);
+  --yellow: #f59e0b;
+  --ydim: rgba(245,158,11,0.13);
+  --red: #ef4444;
+  --rdim: rgba(239,68,68,0.13);
+  --purple: #8b5cf6;
+  --cyan: #06b6d4;
+  --cdim: rgba(6,182,212,0.13);
+  --text: #e2e8f0;
+  --t2: #94a3b8;
+  --t3: #475569;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tab-h: 64px;
+  --header-h: 54px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: var(--safe-top);
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 50;
+}
+.logo {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.logo-cross {
+  width: 24px; height: 24px;
+  background: var(--blue);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: .9rem; font-weight: 800;
+}
+.header-occ {
+  font-size: .72rem;
+  color: var(--t2);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  display: flex; align-items: center; gap: 5px;
+}
+.header-occ strong { color: var(--text); }
+.header-occ .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+.hbtn {
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: .82rem;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  -webkit-appearance: none;
+  margin-left: auto;
+}
+.hbtn-clear {
+  background: var(--rdim);
+  color: var(--red);
+  border: 1px solid rgba(239,68,68,.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: .82rem;
+  cursor: pointer;
+  -webkit-appearance: none;
+  font-family: var(--sans);
+}
+
+/* ── CONTENT AREA ── */
+.content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── VIEWS ── */
+.view {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px calc(var(--tab-h) + var(--safe-bottom) + 12px);
+}
+.view.active { display: block; }
+
+/* scrollbar */
+.view::-webkit-scrollbar { width: 3px; }
+.view::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── BOTTOM TAB BAR ── */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border2);
+  display: flex;
+  height: calc(var(--tab-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  z-index: 100;
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 8px 4px;
+  position: relative;
+  transition: opacity .15s;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  color: var(--t3);
+}
+.tab.active { color: var(--blue); }
+.tab-icon { font-size: 1.3rem; line-height: 1; }
+.tab-label { font-size: .58rem; font-weight: 600; letter-spacing: .3px; font-family: var(--sans); }
+.tab-badge {
+  position: absolute;
+  top: 6px; right: calc(50% - 14px);
+  background: var(--red);
+  color: white;
+  border-radius: 20px;
+  padding: 1px 5px;
+  font-size: .58rem;
+  font-weight: 700;
+  min-width: 16px;
+  text-align: center;
+}
+.tab-badge.g { background: var(--green); }
+.tab-badge.y { background: var(--yellow); color: #000; }
+.tab-badge.c { background: var(--cyan); color: #000; }
+
+/* ── SECTION HEADER ── */
+.section-hd {
+  display: flex; align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.section-sub {
+  font-size: .72rem;
+  color: var(--t2);
+  margin-left: auto;
+}
+
+/* ── SEARCH ── */
+.search-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: .88rem;
+}
+.search-bar input {
+  background: none; border: none; outline: none;
+  font-family: var(--sans); font-size: .88rem;
+  color: var(--text); flex: 1;
+  min-width: 0;
+}
+.search-bar input::placeholder { color: var(--t3); }
+
+/* ── WARD PILLS ── */
+.ward-pills {
+  display: flex; gap: 7px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 12px;
+  padding-bottom: 2px;
+}
+.ward-pills::-webkit-scrollbar { display: none; }
+.pill {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: .75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--t2);
+  -webkit-appearance: none;
+  font-family: var(--sans);
+  transition: all .15s;
+}
+.pill.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+  font-weight: 700;
+}
+
+/* ── PATIENT TILE (grid tipo ícones de app) ── */
+.ptile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+.ptile {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 14px 8px 10px;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .12s, background .12s, border-color .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.ptile:active { transform: scale(.94); background: var(--card2); }
+.ptile.transf { border-color: rgba(6,182,212,.45); }
+
+.ptile-bed {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: .92rem;
+  color: white;
+  background: var(--blue);
+  border-radius: 10px;
+  padding: 5px 10px;
+  line-height: 1;
+}
+.ptile-name {
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.ptile-diag {
+  font-size: .64rem;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.ptile-days {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  font-family: var(--mono);
+  font-size: .6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.ptile-badges {
+  position: absolute;
+  top: 7px; right: 7px;
+  display: flex;
+  gap: 3px;
+}
+.ptile-badge {
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .6rem;
+  font-weight: 800;
+  border: 1.5px solid var(--card);
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.ptile-badge.atb { background: var(--red); color: white; }
+.ptile-badge.transf { background: var(--cyan); color: #00232b; }
+.ptile-badge.pend { background: var(--yellow); color: #000; }
+
+.bed-num {
+  background: var(--bdim);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-family: var(--mono);
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--blue);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  border-radius: 6px; padding: 3px 8px;
+  font-size: .68rem; font-weight: 600;
+}
+.tag-b { background: var(--bdim); color: var(--blue); }
+.tag-y { background: var(--ydim); color: var(--yellow); }
+.tag-c { background: var(--cdim); color: var(--cyan); }
+
+/* ── DASHBOARD GRID ── */
+.dgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.dcard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 12px;
+}
+.dcard-label { font-size: .68rem; color: var(--t2); margin-bottom: 6px; }
+.dcard-val {
+  font-size: 2rem; font-weight: 800;
+  font-family: var(--mono); line-height: 1;
+  margin-bottom: 2px;
+}
+.dcard-sub { font-size: .64rem; color: var(--t3); }
+
+/* ── BOTTOM SHEET MODAL ── */
+.sheet-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 300;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.sheet-overlay.show { display: block; }
+
+.sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--card);
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid var(--border2);
+  max-height: 92vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  z-index: 301;
+  transform: translateY(100%);
+  transition: transform .32s cubic-bezier(.4,0,.2,1);
+  padding-bottom: calc(var(--safe-bottom) + 8px);
+}
+.sheet.open { transform: translateY(0); }
+.sheet::-webkit-scrollbar { width: 3px; }
+.sheet::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sheet-handle {
+  width: 40px; height: 4px;
+  background: var(--border2);
+  border-radius: 4px;
+  margin: 10px auto 0;
+}
+.sheet-header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+  position: sticky; top: 0;
+  background: var(--card); z-index: 5;
+}
+.sheet-bed {
+  background: var(--blue); color: white;
+  border-radius: 10px; padding: 7px 12px;
+  font-family: var(--mono); font-size: .95rem; font-weight: 600;
+  flex-shrink: 0;
+}
+.sheet-name { font-size: 1.05rem; font-weight: 800; margin-bottom: 2px; }
+.sheet-sub { font-size: .75rem; color: var(--t2); }
+.sheet-close {
+  margin-left: auto; background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; color: var(--t2);
+  flex-shrink: 0;
+  -webkit-appearance: none;
+}
+.sheet-body { padding: 16px 18px; }
+
+.sstat-row {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+  margin-bottom: 16px;
+}
+.sstat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px;
+  text-align: center;
+}
+.sstat-label { font-size: .62rem; color: var(--t3); margin-bottom: 4px; }
+.sstat-val { font-size: 1.15rem; font-weight: 800; font-family: var(--mono); }
+
+.ssec-title {
+  font-size: .62rem; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--t3); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+.ssec-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.meds-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.med-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: .8rem;
+}
+.med-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.med-nm { font-weight: 600; flex: 1; }
+.med-dose { font-size: .7rem; color: var(--t2); font-family: var(--mono); }
+.atb-d {
+  background: var(--rdim); color: var(--red);
+  border-radius: 6px; padding: 2px 7px;
+  font-size: .7rem; font-weight: 700; font-family: var(--mono);
+}
+
+.pend-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.pend-row {
+  background: var(--ydim);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 10px; padding: 11px 12px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: .8rem; color: var(--yellow);
+}
+.pend-chk {
+  width: 22px; height: 22px;
+  border: 2px solid var(--yellow);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  font-size: .85rem;
+  transition: all .15s;
+}
+.pend-chk:active { background: var(--yellow); color: #000; transform: scale(.9); }
+
+.alta-row {
+  background: var(--gdim);
+  border: 1px solid rgba(16,185,129,.25);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+  font-size: 1.4rem;
+}
+.alta-date { font-size: 1.05rem; font-weight: 800; color: var(--green); font-family: var(--mono); }
+.alta-sub { font-size: .73rem; color: var(--t2); }
+
+.transf-box {
+  background: var(--cdim);
+  border: 1px solid rgba(6,182,212,.3);
+  border-radius: 14px; padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.transf-title { font-weight: 700; color: var(--cyan); font-size: .88rem; margin-bottom: 8px; }
+.fm-num {
+  font-family: var(--mono); font-size: 1.3rem; font-weight: 600;
+  color: white; background: var(--surface);
+  border: 1px solid var(--border2); border-radius: 8px;
+  padding: 8px 14px; display: inline-block;
+  margin-bottom: 8px; letter-spacing: 1px;
+}
+.transf-info { font-size: .76rem; color: var(--t2); line-height: 1.6; }
+
+/* ── TRANSFER CARDS ── */
+.tcard {
+  background: var(--card);
+  border: 1px solid rgba(6,182,212,.3);
+  border-radius: 16px; padding: 14px;
+  margin-bottom: 10px; cursor: pointer;
+  transition: border-color .15s;
+}
+.tcard:active { background: var(--card2); }
+.tcard-top { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.tpulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cyan);
+  animation: blink 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+.tcard-name { font-weight: 700; font-size: .9rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcard-bed { margin-left: auto; font-family: var(--mono); font-size: .72rem; color: var(--cyan); }
+.fm-box {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;
+}
+.fm-label { font-size: .6rem; color: var(--t3); margin-bottom: 2px; letter-spacing: .5px; }
+.fm-val { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; color: white; letter-spacing: 1px; }
+.tcard-info { font-size: .74rem; color: var(--t2); line-height: 1.6; }
+
+/* ── ADD FORM SHEET ── */
+.form-grid { display: flex; flex-direction: column; gap: 12px; }
+.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.flabel { font-size: .72rem; font-weight: 600; color: var(--t2); letter-spacing: .4px; }
+.finput {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+  font-family: var(--sans); font-size: .9rem;
+  color: var(--text); outline: none;
+  -webkit-appearance: none;
+  transition: border-color .15s;
+}
+.finput:focus { border-color: var(--blue); }
+.finput::placeholder { color: var(--t3); }
+textarea.finput { resize: none; min-height: 80px; }
+select.finput { cursor: pointer; }
+.form-actions {
+  display: flex; gap: 10px;
+  margin-top: 6px;
+}
+.btn-cancel {
+  flex: 1;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px;
+  font-family: var(--sans); font-size: .88rem; font-weight: 600;
+  color: var(--t2); cursor: pointer;
+  -webkit-appearance: none;
+}
+.btn-save {
+  flex: 2;
+  background: var(--blue); border: none;
+  border-radius: 12px; padding: 13px;
+  font-family: var(--sans); font-size: .88rem; font-weight: 700;
+  color: white; cursor: pointer;
+  -webkit-appearance: none;
+}
+
+/* ── EMPTY STATE ── */
+.empty { text-align: center; padding: 48px 20px; color: var(--t3); grid-column: 1 / -1; }
+.empty .ei { font-size: 2.8rem; margin-bottom: 10px; }
+.empty p { font-size: .85rem; }
+
+/* ── TOAST ── */
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes toastOut { from{opacity:1} to{opacity:0} }
+
+/* ── ATB VIEW ── */
+.atb-section { margin-bottom: 14px; }
+.atb-hd {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.atb-pname { font-weight: 700; font-size: .9rem; }
+.atb-pbed { font-family: var(--mono); font-size: .72rem; color: var(--blue); }
+.atb-pward { font-size: .7rem; color: var(--t3); }
+
+/* ── DISCHARGE LIST ── */
+.alta-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px;
+  margin-bottom: 8px; cursor: pointer;
+  display: flex; align-items: center; gap: 12px;
+}
+.alta-card:active { background: var(--card2); }
+.alta-info { flex: 1; min-width: 0; }
+.alta-nm { font-weight: 700; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alta-det { font-size: .72rem; color: var(--t2); margin-top: 2px; }
+.alta-dt { text-align: right; flex-shrink: 0; }
+.alta-dtval { font-family: var(--mono); font-size: .95rem; font-weight: 700; }
+.alta-dtlbl { font-size: .68rem; font-weight: 600; margin-top: 2px; }
+
+/* ── PENDING LIST ── */
+.pend-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px;
+  margin-bottom: 10px;
+}
+.pend-card-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.pend-count {
+  background: var(--ydim); color: var(--yellow);
+  border-radius: 6px; padding: 2px 8px;
+  font-size: .7rem; font-weight: 700;
+}
+
+/* responsive tweaks */
+@media(min-width:600px){
+  .dgrid { grid-template-columns: repeat(4,1fr); }
+  .ptile-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .fg-row { grid-template-columns: 1fr 1fr; }
+  .sheet { max-width: 540px; left: 50%; right: auto; transform: translateX(-50%) translateY(100%); border-radius: 22px; }
+  .sheet.open { transform: translateX(-50%) translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo"><div class="logo-cross">✚</div>MedControl</div>
+  <div class="header-occ" id="hOcc"><div class="dot"></div><span>— / 100</span></div>
+  <button class="hbtn" onclick="openAdd()">＋ Paciente</button>
+  <button class="hbtn-clear" onclick="confirmClear()">🗑</button>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="v-dash">
+    <div class="dgrid" id="dgrid"></div>
+    <div class="section-hd"><div class="section-title">Pacientes Recentes</div></div>
+    <div class="ptile-grid" id="dash-recentes"></div>
+  </div>
+
+  <!-- PACIENTES -->
+  <div class="view" id="v-pac">
+    <div class="search-bar">🔍 <input type="search" id="srch" placeholder="Nome, leito ou patologia…" oninput="rPac()" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+    <div class="ward-pills" id="wpills"></div>
+    <div class="section-hd"><div class="section-title">Internados</div><div class="section-sub" id="pac-count"></div></div>
+    <div class="ptile-grid" id="pac-list"></div>
+  </div>
+
+  <!-- ANTIBIÓTICOS -->
+  <div class="view" id="v-atb">
+    <div class="section-hd"><div class="section-title">Antibioticoterapia</div><div class="section-sub" id="atb-count"></div></div>
+    <div id="atb-list"></div>
+  </div>
+
+  <!-- PENDÊNCIAS -->
+  <div class="view" id="v-pend">
+    <div class="section-hd"><div class="section-title">Pendências Ativas</div><div class="section-sub" id="pend-count"></div></div>
+    <div id="pend-list"></div>
+  </div>
+
+  <!-- TRANSFERÊNCIAS -->
+  <div class="view" id="v-transf">
+    <div class="section-hd"><div class="section-title">Central de Leitos</div><div class="section-sub" id="transf-count"></div></div>
+    <div id="transf-list"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM TAB BAR -->
+<div class="tabbar">
+  <button class="tab active" id="tab-dash" onclick="showView('dash',this)">
+    <div class="tab-icon">📊</div>
+    <div class="tab-label">Painel</div>
+  </button>
+  <button class="tab" id="tab-pac" onclick="showView('pac',this)">
+    <div class="tab-icon">🛏️</div>
+    <div class="tab-label">Pacientes</div>
+    <div class="tab-badge g" id="nb-pac">0</div>
+  </button>
+  <button class="tab" id="tab-atb" onclick="showView('atb',this)">
+    <div class="tab-icon">💊</div>
+    <div class="tab-label">ATB</div>
+    <div class="tab-badge" id="nb-atb">0</div>
+  </button>
+  <button class="tab" id="tab-pend" onclick="showView('pend',this)">
+    <div class="tab-icon">⚠️</div>
+    <div class="tab-label">Pendências</div>
+    <div class="tab-badge y" id="nb-pend">0</div>
+  </button>
+  <button class="tab" id="tab-transf" onclick="showView('transf',this)">
+    <div class="tab-icon">🚑</div>
+    <div class="tab-label">Transf.</div>
+    <div class="tab-badge c" id="nb-transf">0</div>
+  </button>
+</div>
+
+<!-- DETAIL SHEET -->
+<div class="sheet-overlay" id="detOvl" onclick="closeDetail()"></div>
+<div class="sheet" id="detSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-bed" id="dBed"></div>
+    <div><div class="sheet-name" id="dName"></div><div class="sheet-sub" id="dSub"></div></div>
+    <button class="sheet-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="sstat-row" id="dStats"></div>
+    <div class="ssec-title">Patologias</div>
+    <div id="dPath" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px;"></div>
+    <div class="ssec-title">Medicações</div>
+    <div class="meds-list" id="dMeds"></div>
+    <div id="dAtbSec"><div class="ssec-title">Antibióticos</div><div class="meds-list" id="dAtbs"></div></div>
+    <div id="dPendSec"><div class="ssec-title">Pendências</div><div class="pend-list" id="dPend"></div></div>
+    <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
+    <div id="dTransfSec"><div class="ssec-title">Transferência</div><div class="transf-box" id="dTransf"></div></div>
+  </div>
+</div>
+
+<!-- ADD SHEET -->
+<div class="sheet-overlay" id="addOvl" onclick="closeAdd()"></div>
+<div class="sheet" id="addSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div><div class="sheet-name">Novo Paciente</div><div class="sheet-sub">Dados de internação</div></div>
+    <button class="sheet-close" onclick="closeAdd()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-grid">
+      <div class="fg"><label class="flabel">Nome completo</label><input class="finput" id="fn" placeholder="Nome do paciente" autocomplete="off"></div>
+      <div class="fg-row">
+        <div class="fg"><label class="flabel">Leito</label><input class="finput" id="fb" placeholder="Ex: L-12"></div>
+        <div class="fg"><label class="flabel">Idade</label><input class="finput" id="fa" type="number" placeholder="Ex: 58"></div>
+      </div>
+      <div class="fg"><label class="flabel">Ala / Setor</label>
+        <select class="finput" id="fw">
+          <option>UTI</option><option>Clínica Médica</option><option>Cirurgia</option><option>Pediatria</option><option>Obs/Maternidade</option>
+        </select>
+      </div>
+      <div class="fg"><label class="flabel">Patologias (separadas por vírgula)</label><input class="finput" id="fp" placeholder="Ex: DPOC, HAS, DM2"></div>
+      <div class="fg"><label class="flabel">Medicações (uma por linha)</label><textarea class="finput" id="fm" placeholder="Ex: Omeprazol 40mg 1x/dia"></textarea></div>
+      <div class="fg"><label class="flabel">Antibióticos (um por linha)</label><textarea class="finput" id="fta" placeholder="Ex: Meropenem 2g 8/8h IV"></textarea></div>
+      <div class="fg"><label class="flabel">Pendências (uma por linha)</label><textarea class="finput" id="fpend" placeholder="Ex: Aguardar hemocultura"></textarea></div>
+      <div class="fg-row">
+        <div class="fg"><label class="flabel">Data de internação</label><input class="finput" id="fad" type="date"></div>
+        <div class="fg"><label class="flabel">Previsão de Alta</label><input class="finput" id="falt" type="date"></div>
+      </div>
+      <div class="fg"><label class="flabel">Aguardando transferência?</label>
+        <select class="finput" id="ftr" onchange="toggleTrFields()">
+          <option value="nao">Não</option>
+          <option value="sim">Sim — aguardando central de leitos</option>
+        </select>
+      </div>
+      <div id="ftr-extra" style="display:none">
+        <div class="fg" style="margin-bottom:12px"><label class="flabel">Nº FastMedic (protocolo)</label><input class="finput" id="ffm" placeholder="Ex: FM-2024-00458"></div>
+        <div class="fg"><label class="flabel">Hospital de destino / Motivo</label><input class="finput" id="fdest" placeholder="Ex: HGF – UTI Cardiológica"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closeAdd()">Cancelar</button>
+        <button class="btn-save" onclick="savePatient()">✓ Salvar Internação</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── utils ──
+const today = new Date();
+const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
+const dUntil= s => s ? Math.ceil((new Date(s+'T12:00:00') - today)/86400000) : null;
+const fmtD  = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+const off   = n => { const d=new Date(today); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
+
+// ── storage ──
+const SK = 'mc_v3';
+function save(){ try{ localStorage.setItem(SK,JSON.stringify(pts)); toast('💾 Dados salvos'); }catch(e){ toast('⚠️ Erro ao salvar',true); } }
+function load(){ try{ const r=localStorage.getItem(SK); if(r){ const p=JSON.parse(r); if(Array.isArray(p)&&p.length) return p; } }catch(e){} return null; }
+
+function toast(msg, err=false){
+  const old=document.getElementById('_t'); if(old) old.remove();
+  const t=document.createElement('div'); t.id='_t'; t.textContent=msg;
+  t.style.cssText=`position:fixed;bottom:calc(var(--tab-h) + var(--safe-bottom) + 12px);left:50%;transform:translateX(-50%);background:${err?'#ef4444':'#10b981'};color:white;padding:9px 20px;border-radius:30px;font-size:.78rem;font-weight:700;font-family:'Outfit',sans-serif;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,.5);white-space:nowrap;animation:toastIn .3s ease`;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.animation='toastOut .3s ease forwards';setTimeout(()=>t.remove(),300);},2200);
+}
+
+// ── demo data ──
+const DEMO = [
+  {id:1,bed:'L-01',name:'Maria das Graças Santos',age:67,ward:'UTI',admitDate:off(-12),altaDate:off(3),
+   pathologies:['Sepse pulmonar','HAS','DM2'],
+   medications:['Noradrenalina 0,1mcg/kg/min IV','Insulina Regular IC','Metoprolol 25mg 12/12h','Omeprazol 40mg 1x/dia'],
+   antibiotics:[{name:'Meropenem 2g 8/8h IV',startDate:off(-5)},{name:'Vancomicina 1g 12/12h IV',startDate:off(-5)}],
+   pendings:['Resultado hemoculturas (48h)','Ajuste dose Vancomicina','Fisioterapia respiratória'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:2,bed:'L-02',name:'José Carlos Oliveira',age:54,ward:'UTI',admitDate:off(-8),altaDate:off(5),
+   pathologies:['IAM com CSST','IC FE 35%','HAS'],
+   medications:['AAS 100mg 1x/dia','Clopidogrel 75mg 1x/dia','Enalapril 10mg 12/12h','Furosemida 40mg 2x/dia'],
+   antibiotics:[],pendings:['Ecocardiograma pendente','Liberação p/ UTI Cardiológica'],
+   transfer:true,fastmedic:'FM-2024-00812',destino:'HGF – UTI Cardiológica'},
+  {id:3,bed:'L-07',name:'Antônia Lima Ferreira',age:78,ward:'Clínica Médica',admitDate:off(-5),altaDate:off(2),
+   pathologies:['AVC isquêmico','FA crônica','HAS','IRC moderada'],
+   medications:['Varfarina 5mg 1x/dia','Anlodipino 10mg 1x/dia','AAS 100mg 1x/dia','Sinvastatina 40mg 1x/dia'],
+   antibiotics:[{name:'Ceftriaxona 2g 24/24h IV',startDate:off(-3)}],
+   pendings:['TC crânio de controle','Parecer neurologia','INR de controle'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:4,bed:'L-15',name:'Francisco Sousa Costa',age:42,ward:'Cirurgia',admitDate:off(-3),altaDate:off(4),
+   pathologies:['Apendicite perfurada','Peritonite localizada'],
+   medications:['Dipirona 1g 6/6h IV','Morfina 5mg SN','Metoclopramida 10mg 8/8h'],
+   antibiotics:[{name:'Pip/Tazob. 4,5g 6/6h IV',startDate:off(-3)},{name:'Metronidazol 500mg 8/8h IV',startDate:off(-3)}],
+   pendings:['Dieta VO após 48h','Retirada dreno D5'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:5,bed:'L-23',name:'Raimunda Alves Pereira',age:31,ward:'Obs/Maternidade',admitDate:off(-2),altaDate:off(1),
+   pathologies:['Pré-eclâmpsia grave','IG 34 semanas'],
+   medications:['Sulfato de Magnésio 4g IV','Hidralazina 10mg EV SN','Betametasona 12mg IM','Nifedipino 10mg SL SN'],
+   antibiotics:[],pendings:['Monitorização fetal contínua','Parto programado amanhã'],
+   transfer:true,fastmedic:'FM-2024-00833',destino:'MEAC – UTI Neonatal'},
+  {id:6,bed:'L-31',name:'Pedro Henrique Nascimento',age:9,ward:'Pediatria',admitDate:off(-4),altaDate:off(2),
+   pathologies:['Crise asmática grave','Rinite alérgica'],
+   medications:['Salbutamol 2,5mg nebulização 4/4h','Prednisolona 1mg/kg/dia VO','Dipirona 250mg 6/6h SN'],
+   antibiotics:[],pendings:['Peak flow controle manhã','Orientação familiar bombinha'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:7,bed:'L-44',name:'Luiza Mendes Barros',age:61,ward:'Clínica Médica',admitDate:off(-18),altaDate:off(7),
+   pathologies:['DPOC exacerbado','Cor pulmonale','HAS'],
+   medications:['Formoterol+Budesonida 2x/dia','Ipratrópio nebulização 6/6h','Furosemida 40mg 1x/dia','Amiodarona 200mg 1x/dia'],
+   antibiotics:[{name:'Levofloxacino 500mg 24/24h VO',startDate:off(-7)}],
+   pendings:['Gasometria de controle','Espirometria após melhora'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:8,bed:'L-52',name:'Carlos Roberto Melo',age:48,ward:'Cirurgia',admitDate:off(-6),altaDate:off(1),
+   pathologies:['Colecistite aguda litiásica','DM2'],
+   medications:['Tramadol 100mg 8/8h IV','Dipirona 1g 6/6h IV','Insulina NPH 20UI 12/12h'],
+   antibiotics:[{name:'Cefazolina 2g 8/8h IV',startDate:off(-2)}],
+   pendings:['Laparoscopia amanhã','Glicemia capilar 4x/dia'],
+   transfer:false,fastmedic:'',destino:''},
+  {id:9,bed:'L-60',name:'Marlene Souza Gomes',age:83,ward:'Clínica Médica',admitDate:off(-22),altaDate:null,
+   pathologies:['Pneumonia aspirativa','Demência avançada','HAS','DM2','IRC grave'],
+   medications:['Haloperidol 2mg SN','Donepezila 5mg 1x/dia','Losartana 50mg 1x/dia','Heparina 5000UI 12/12h SC'],
+   antibiotics:[{name:'Ampicilina/Sulbactam 3g 6/6h IV',startDate:off(-10)},{name:'Claritromicina 500mg 12/12h VO',startDate:off(-10)}],
+   pendings:['Discussão familiar prognóstico','Fonoaudiologia (disfagia)','TC tórax de controle','Avaliação cuidados paliativos'],
+   transfer:true,fastmedic:'FM-2024-00799',destino:'Hospital de Retaguarda – leito crônico'}
+];
+
+let pts = load() || JSON.parse(JSON.stringify(DEMO));
+let curView = 'dash';
+let wardF = 'all';
+
+// ── navigation ──
+function showView(v, el){
+  curView = v; wardF = 'all';
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.getElementById('v-'+v).classList.add('active');
+  if(el) el.classList.add('active');
+  else document.getElementById('tab-'+v)?.classList.add('active');
+  render(v);
+  window.scrollTo(0,0);
+}
+function render(v){
+  if(v==='dash') rDash();
+  else if(v==='pac') rPac();
+  else if(v==='atb') rAtb();
+  else if(v==='pend') rPend();
+  else if(v==='transf') rTransf();
+}
+
+// ── badges ──
+function badges(){
+  const n = pts.length;
+  document.getElementById('nb-pac').textContent = n;
+  document.getElementById('nb-atb').textContent = pts.filter(p=>p.antibiotics.length).length;
+  document.getElementById('nb-pend').textContent = pts.filter(p=>p.pendings.length).length;
+  document.getElementById('nb-transf').textContent = pts.filter(p=>p.transfer).length;
+  document.getElementById('hOcc').innerHTML = `<div class="dot"></div><strong>${n}</strong>/<span>100</span> leitos`;
+}
+
+// ── tile HTML (ícone de app) ──
+function tileHTML(p){
+  const d=dAgo(p.admitDate);
+  const dc=d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)';
+  const diag=p.pathologies[0]||'Sem diagnóstico';
+  return `<div class="ptile${p.transfer?' transf':''}" onclick="openDetail(${p.id})" title="${p.name}">
+    <div class="ptile-badges">
+      ${p.antibiotics.length?`<div class="ptile-badge atb" title="Em antibiótico">💊</div>`:''}
+      ${p.transfer?`<div class="ptile-badge transf" title="Aguardando transferência">🚑</div>`:''}
+      ${p.pendings.length?`<div class="ptile-badge pend" title="${p.pendings.length} pendência${p.pendings.length!==1?'s':''}">${p.pendings.length}</div>`:''}
+    </div>
+    <div class="ptile-bed">${p.bed}</div>
+    <div class="ptile-name">${p.name}</div>
+    <div class="ptile-diag">${diag}</div>
+    <div class="ptile-days" style="background:${dc}22;color:${dc};">${d}d</div>
+  </div>`;
+}
+
+// ── dashboard ──
+function rDash(){
+  const occ=pts.length,atb=pts.filter(p=>p.antibiotics.length).length,pend=pts.filter(p=>p.pendings.length).length,
+    transf=pts.filter(p=>p.transfer).length,alta=pts.filter(p=>p.altaDate&&dUntil(p.altaDate)<=3&&dUntil(p.altaDate)>=0).length,
+    long=pts.filter(p=>dAgo(p.admitDate)>=14).length, noAlta=pts.filter(p=>!p.altaDate).length;
+  document.getElementById('dgrid').innerHTML=`
+    <div class="dcard"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
+    <div class="dcard"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
+    <div class="dcard"><div class="dcard-label">Em Antibióticos</div><div class="dcard-val" style="color:var(--red)">${atb}</div><div class="dcard-sub">em ATB ativo</div></div>
+    <div class="dcard"><div class="dcard-label">Transferências</div><div class="dcard-val" style="color:var(--cyan)">${transf}</div><div class="dcard-sub">aguardando leito</div></div>
+    <div class="dcard"><div class="dcard-label">Pendências</div><div class="dcard-val" style="color:var(--yellow)">${pend}</div><div class="dcard-sub">pacientes c/ pendências</div></div>
+    <div class="dcard"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
+    <div class="dcard"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
+    <div class="dcard"><div class="dcard-label">Sem Prev. Alta</div><div class="dcard-val" style="color:var(--red)">${noAlta}</div><div class="dcard-sub">indefinidos</div></div>`;
+  document.getElementById('dash-recentes').innerHTML = pts.slice(0,5).map(tileHTML).join('');
+  badges();
+}
+
+// ── pacientes ──
+function rPac(){
+  const s=(document.getElementById('srch')?.value||'').toLowerCase();
+  const f=pts.filter(p=>{
+    const mW=wardF==='all'||p.ward===wardF;
+    const mS=!s||p.name.toLowerCase().includes(s)||p.bed.toLowerCase().includes(s)||p.pathologies.join(' ').toLowerCase().includes(s);
+    return mW&&mS;
+  });
+  document.getElementById('pac-count').textContent=`${f.length} paciente${f!==1?'s':''}`;
+  const wards=['all','UTI','Clínica Médica','Cirurgia','Pediatria','Obs/Maternidade'];
+  document.getElementById('wpills').innerHTML=wards.map(w=>`<button class="pill${wardF===w?' active':''}" onclick="wardF='${w}';rPac()">${w==='all'?'Todos':w}</button>`).join('');
+  document.getElementById('pac-list').innerHTML=f.length?f.map(tileHTML).join(''):'<div class="empty"><div class="ei">🛏️</div><p>Nenhum paciente encontrado.</p></div>';
+}
+
+// ── antibióticos ──
+function rAtb(){
+  const w=pts.filter(p=>p.antibiotics.length);
+  document.getElementById('atb-count').textContent=`${w.length} paciente${w.length!==1?'s':''}`;
+  const colors=['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'];
+  document.getElementById('atb-list').innerHTML=w.length?w.map(p=>`
+    <div class="atb-section" onclick="openDetail(${p.id})">
+      <div class="atb-hd">
+        <div class="bed-num">${p.bed}</div>
+        <div class="atb-pname">${p.name}</div>
+        <div class="atb-pward">${p.ward}</div>
+      </div>
+      <div class="meds-list">${p.antibiotics.map((a,i)=>{
+        const d=dAgo(a.startDate),c=d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)';
+        return`<div class="med-row"><div class="med-dot" style="background:var(--red)"></div><div style="flex:1"><div class="med-nm">${a.name}</div><div style="font-size:.66rem;color:var(--t3);">Início: ${fmtD(a.startDate)}</div></div><div class="atb-d" style="background:${c}22;color:${c};border:1px solid ${c}44;">D${d}</div></div>`;
+      }).join('')}</div>
+    </div>`).join(''):'<div class="empty"><div class="ei">💊</div><p>Nenhum paciente em ATB.</p></div>';
+}
+
+// ── pendências ──
+function rPend(){
+  const w=pts.filter(p=>p.pendings.length);
+  document.getElementById('pend-count').textContent=`${w.length} paciente${w.length!==1?'s':''}`;
+  document.getElementById('pend-list').innerHTML=w.length?w.map(p=>`
+    <div class="pend-card">
+      <div class="pend-card-hd">
+        <div class="bed-num">${p.bed}</div>
+        <div style="font-weight:700;font-size:.9rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
+        <div class="atb-pward" style="flex-shrink:0;">${p.ward}</div>
+        <div class="pend-count">${p.pendings.length} pendência${p.pendings.length!==1?'s':''}</div>
+      </div>
+      <div class="pend-list" style="margin-bottom:0">${p.pendings.map((pend,i)=>`
+        <div class="pend-row">
+          <div class="pend-chk" onclick="resolvePend(${p.id},${i})">✓</div>
+          <span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span>
+        </div>`).join('')}
+      </div>
+    </div>`).join(''):'<div class="empty"><div class="ei">✅</div><p>Sem pendências ativas!</p></div>';
+}
+
+function resolvePend(pid,idx){
+  const p=pts.find(x=>x.id===pid); if(!p) return;
+  p.pendings.splice(idx,1); save(); badges(); rPend();
+  if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
+}
+
+// ── transferências ──
+function rTransf(){
+  const w=pts.filter(p=>p.transfer);
+  document.getElementById('transf-count').textContent=`${w.length} aguardando`;
+  document.getElementById('transf-list').innerHTML=w.length?w.map(p=>`
+    <div class="tcard" onclick="openDetail(${p.id})">
+      <div class="tcard-top">
+        <div class="tpulse"></div>
+        <div class="tcard-name">${p.name}</div>
+        <div class="atb-pward" style="flex-shrink:0;">${p.ward}</div>
+        <div class="tcard-bed">${p.bed}</div>
+      </div>
+      <div class="fm-box"><div class="fm-label">FASTMEDIC / PROTOCOLO</div><div class="fm-val">${p.fastmedic||'—'}</div></div>
+      <div class="tcard-info">
+        <div>🏥 <strong>Destino:</strong> ${p.destino||'—'}</div>
+        <div>🛏️ <strong>Leito:</strong> ${p.bed} · ${p.ward}</div>
+        <div>📅 <strong>Internado há:</strong> ${dAgo(p.admitDate)} dias</div>
+        <div style="margin-top:6px;font-size:.72rem;color:var(--t3);">${p.pathologies.join(' · ')}</div>
+      </div>
+    </div>`).join(''):'<div class="empty"><div class="ei">🚑</div><p>Nenhuma transferência ativa.</p></div>';
+}
+
+// ── detail sheet ──
+function openDetail(id){
+  const p=pts.find(x=>x.id===id); if(!p) return;
+  const d=dAgo(p.admitDate), ad=p.antibiotics.length?dAgo(p.antibiotics[0].startDate):null, alt=dUntil(p.altaDate);
+  document.getElementById('dBed').textContent=p.bed;
+  document.getElementById('dName').textContent=p.name;
+  document.getElementById('dSub').textContent=`${p.age} anos · ${p.ward} · Internado desde ${fmtD(p.admitDate)}`;
+  document.getElementById('dStats').innerHTML=`
+    <div class="sstat"><div class="sstat-label">Dias Internado</div><div class="sstat-val" style="color:${d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)'}">${d}d</div></div>
+    <div class="sstat"><div class="sstat-label">Dias ATB</div><div class="sstat-val" style="color:var(--red)">${ad!==null?'D'+ad:'—'}</div></div>
+    <div class="sstat"><div class="sstat-label">Alta em</div><div class="sstat-val" style="color:var(--green)">${alt!==null?(alt===0?'Hoje':alt+'d'):'—'}</div></div>`;
+  document.getElementById('dPath').innerHTML=p.pathologies.map(x=>`<span class="tag tag-b" style="font-size:.76rem;padding:4px 9px;">🔹 ${x}</span>`).join('');
+  const colors=['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'];
+  document.getElementById('dMeds').innerHTML=p.medications.map((m,i)=>`<div class="med-row"><div class="med-dot" style="background:${colors[i%colors.length]}"></div><div class="med-nm">${m.split(' ').slice(0,2).join(' ')}</div><div class="med-dose">${m.split(' ').slice(2).join(' ')}</div></div>`).join('')||'<div style="color:var(--t3);font-size:.8rem;padding:8px 0;">Sem medicações registradas.</div>';
+  const atbSec=document.getElementById('dAtbSec');
+  if(p.antibiotics.length){
+    atbSec.style.display='';
+    document.getElementById('dAtbs').innerHTML=p.antibiotics.map(a=>`<div class="med-row"><div class="med-dot" style="background:var(--red)"></div><div style="flex:1"><div class="med-nm">${a.name}</div><div style="font-size:.66rem;color:var(--t3);">Início: ${fmtD(a.startDate)}</div></div><div class="atb-d">D${dAgo(a.startDate)}</div></div>`).join('');
+  } else atbSec.style.display='none';
+  const pendSec=document.getElementById('dPendSec');
+  if(p.pendings.length){
+    pendSec.style.display='';
+    document.getElementById('dPend').innerHTML=p.pendings.map((pend,i)=>`<div class="pend-row"><div class="pend-chk" onclick="resolvePend(${p.id},${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`).join('');
+  } else pendSec.style.display='none';
+  const altaSec=document.getElementById('dAltaSec');
+  if(p.altaDate){
+    altaSec.style.display='';
+    const a=dUntil(p.altaDate);
+    document.getElementById('dAlta').innerHTML=`<span>📅</span><div><div class="alta-date">${fmtD(p.altaDate)}</div><div class="alta-sub">${a>0?`em ${a} dia${a!==1?'s':''}`:a===0?'Previsão para hoje':'Atrasada '+Math.abs(a)+'d'}</div></div>`;
+  } else altaSec.style.display='none';
+  const trSec=document.getElementById('dTransfSec');
+  if(p.transfer){
+    trSec.style.display='';
+    document.getElementById('dTransf').innerHTML=`<div class="transf-title">🚑 Aguardando Central de Leitos</div><div class="fm-num">${p.fastmedic}</div><div class="transf-info"><strong>Destino:</strong> ${p.destino}<br><strong>Status:</strong> Solicitação ativa · aguardando confirmação de leito</div>`;
+  } else trSec.style.display='none';
+  document.getElementById('detOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('detSheet').classList.add('open'));
+}
+function closeDetail(){
+  document.getElementById('detSheet').classList.remove('open');
+  setTimeout(()=>document.getElementById('detOvl').classList.remove('show'),320);
+}
+
+// ── add sheet ──
+function openAdd(){
+  document.getElementById('fad').value=new Date().toISOString().split('T')[0];
+  document.getElementById('addOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('addSheet').classList.add('open'));
+}
+function closeAdd(){ document.getElementById('addSheet').classList.remove('open'); setTimeout(()=>document.getElementById('addOvl').classList.remove('show'),320); }
+function closeAdd2(e){ if(e.target===document.getElementById('addOvl')) closeAdd(); }
+document.getElementById('addOvl').addEventListener('click',closeAdd2);
+function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; }
+
+function savePatient(){
+  const name=document.getElementById('fn').value.trim(), bed=document.getElementById('fb').value.trim();
+  if(!name||!bed){ toast('⚠️ Nome e leito obrigatórios',true); return; }
+  const np={
+    id:Date.now(), bed, name,
+    age:parseInt(document.getElementById('fa').value)||0,
+    ward:document.getElementById('fw').value,
+    admitDate:document.getElementById('fad').value||new Date().toISOString().split('T')[0],
+    altaDate:document.getElementById('falt').value||null,
+    pathologies:(document.getElementById('fp').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    medications:(document.getElementById('fm').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
+    antibiotics:(document.getElementById('fta').value||'').split('\n').map(s=>s.trim()).filter(Boolean).map(s=>({name:s,startDate:new Date().toISOString().split('T')[0]})),
+    pendings:(document.getElementById('fpend').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
+    transfer:document.getElementById('ftr').value==='sim',
+    fastmedic:document.getElementById('ffm').value.trim(),
+    destino:document.getElementById('fdest').value.trim()
+  };
+  pts.unshift(np); save(); badges(); closeAdd();
+  ['fn','fb','fa','fp','fm','fta','fpend','falt','ffm','fdest'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('ftr').value='nao'; document.getElementById('ftr-extra').style.display='none';
+  render(curView);
+}
+
+function confirmClear(){
+  if(confirm('⚠️ Apagar todos os dados e voltar ao exemplo?\n\nEssa ação não pode ser desfeita.')){
+    localStorage.removeItem(SK); pts=JSON.parse(JSON.stringify(DEMO));
+    toast('🔄 Dados resetados'); badges(); render(curView);
+  }
+}
+
+// ── init ──
+badges();
+rDash();
+
+// ── PWA: service worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').then((reg) => {
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            toast('🔄 Nova versão instalada — feche e reabra o app');
+          }
+        });
+      });
+    }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
