@@ -562,6 +562,8 @@ body {
 .aih-proc { font-size: .8rem; color: var(--text); margin-bottom: 6px; }
 .aih-val { font-size: 1.3rem; font-weight: 800; color: var(--green); font-family: var(--mono); }
 .aih-empty { font-size: .8rem; color: var(--t3); }
+.aih-perm { font-size: .7rem; color: var(--t2); margin-top: 6px; }
+.aih-warn { font-size: .74rem; color: var(--yellow); margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(245,158,11,.25); line-height: 1.4; }
 
 /* ── TRANSFER CARDS ── */
 .tcard {
@@ -799,6 +801,7 @@ select.finput { cursor: pointer; }
     <div class="sheet-header-row">
       <div class="sheet-bed" id="dBed"></div>
       <div><div class="sheet-name" id="dName"></div><div class="sheet-sub" id="dSub"></div></div>
+      <button class="sheet-close" id="dEditBtn" style="background:var(--bdim);color:var(--blue);">✏️</button>
       <button class="sheet-close" onclick="closeDetail()">✕</button>
     </div>
     <div class="disch-row" id="dDischarge"></div>
@@ -822,7 +825,7 @@ select.finput { cursor: pointer; }
 <div class="sheet" id="addSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-header">
-    <div><div class="sheet-name">Novo Paciente</div><div class="sheet-sub">Dados de internação</div></div>
+    <div><div class="sheet-name" id="addTitle">Novo Paciente</div><div class="sheet-sub">Dados de internação</div></div>
     <button class="sheet-close" onclick="closeAdd()">✕</button>
   </div>
   <div class="sheet-body">
@@ -857,7 +860,7 @@ select.finput { cursor: pointer; }
       </div>
       <div class="form-actions">
         <button class="btn-cancel" onclick="closeAdd()">Cancelar</button>
-        <button class="btn-save" onclick="savePatient()">✓ Salvar Internação</button>
+        <button class="btn-save" id="addSaveBtn" onclick="savePatient()">✓ Salvar Internação</button>
       </div>
     </div>
   </div>
@@ -916,29 +919,29 @@ function toast(msg, err=false){
 
 // ── estimativa SIGTAP/AIH por diagnóstico (tabela curada, competência 2026-07) ──
 const AIH_ESTIMATIVAS = {
-  'S420': {proc:'04.08.01.012-6 Redução incruenta de fratura da cintura escapular', valor:88.56},
-  'S525': {proc:'04.08.02.024-5 Redução incruenta de fratura/luxação do punho', valor:145.98},
-  'K35':  {proc:'04.07.02.003-9 Apendicectomia', valor:414.62},
-  'K359': {proc:'04.07.02.003-9 Apendicectomia', valor:414.62},
-  'K40':  {proc:'04.07.04.010-2 Hernioplastia inguinal/crural (unilateral)', valor:637.97},
-  'K409': {proc:'04.07.04.010-2 Hernioplastia inguinal/crural (unilateral)', valor:637.97},
-  'K800': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34},
-  'K802': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34},
-  'K829': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34},
-  'K83':  {proc:'04.07.03.002-6 Colecistectomia (aprox.)', valor:996.34},
-  'J180': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42},
-  'J158': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42},
-  'J159': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42},
-  'J189': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42},
-  'E105': {proc:'03.03.03.003-8 Tratamento de diabetes mellitus', valor:360.80},
-  'E106': {proc:'03.03.03.003-8 Tratamento de diabetes mellitus', valor:360.80},
-  'I64':  {proc:'03.03.04.014-9 Tratamento de AVC (isquêmico ou hemorrágico)', valor:463.21},
-  'I21':  {proc:'03.03.06.019-0 Tratamento de infarto agudo do miocárdio', valor:588.12},
-  'N390': {proc:'03.05.02.001-3 Tratamento da pielonefrite (aprox. p/ ITU)', valor:204.50},
-  'N110': {proc:'03.05.02.001-3 Tratamento da pielonefrite', valor:204.50},
-  'O820': {proc:'04.11.01.003-4 Operação cesariana', valor:545.73},
-  'O821': {proc:'04.11.01.003-4 Operação cesariana', valor:545.73},
-  'N40':  {proc:'04.09.03.002-3 Prostatectomia suprapúbica', valor:1001.71}
+  'S420': {proc:'04.08.01.012-6 Redução incruenta de fratura da cintura escapular', valor:88.56, permanencia:null},
+  'S525': {proc:'04.08.02.024-5 Redução incruenta de fratura/luxação do punho', valor:145.98, permanencia:1},
+  'K35':  {proc:'04.07.02.003-9 Apendicectomia', valor:414.62, permanencia:3},
+  'K359': {proc:'04.07.02.003-9 Apendicectomia', valor:414.62, permanencia:3},
+  'K40':  {proc:'04.07.04.010-2 Hernioplastia inguinal/crural (unilateral)', valor:637.97, permanencia:2},
+  'K409': {proc:'04.07.04.010-2 Hernioplastia inguinal/crural (unilateral)', valor:637.97, permanencia:2},
+  'K800': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34, permanencia:3},
+  'K802': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34, permanencia:3},
+  'K829': {proc:'04.07.03.002-6 Colecistectomia', valor:996.34, permanencia:3},
+  'K83':  {proc:'04.07.03.002-6 Colecistectomia (aprox.)', valor:996.34, permanencia:3},
+  'J180': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42, permanencia:4},
+  'J158': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42, permanencia:4},
+  'J159': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42, permanencia:4},
+  'J189': {proc:'03.03.14.015-1 Tratamento de pneumonias ou influenza', valor:582.42, permanencia:4},
+  'E105': {proc:'03.03.03.003-8 Tratamento de diabetes mellitus', valor:360.80, permanencia:4},
+  'E106': {proc:'03.03.03.003-8 Tratamento de diabetes mellitus', valor:360.80, permanencia:4},
+  'I64':  {proc:'03.03.04.014-9 Tratamento de AVC (isquêmico ou hemorrágico)', valor:463.21, permanencia:7},
+  'I21':  {proc:'03.03.06.019-0 Tratamento de infarto agudo do miocárdio', valor:588.12, permanencia:7},
+  'N390': {proc:'03.05.02.001-3 Tratamento da pielonefrite (aprox. p/ ITU)', valor:204.50, permanencia:2},
+  'N110': {proc:'03.05.02.001-3 Tratamento da pielonefrite', valor:204.50, permanencia:2},
+  'O820': {proc:'04.11.01.003-4 Operação cesariana', valor:545.73, permanencia:2},
+  'O821': {proc:'04.11.01.003-4 Operação cesariana', valor:545.73, permanencia:2},
+  'N40':  {proc:'04.09.03.002-3 Prostatectomia suprapúbica', valor:1001.71, permanencia:4}
 };
 function estimateAIH(p){
   if(!p.pathologies || !p.pathologies.length) return null;
@@ -1059,6 +1062,7 @@ function rDash(){
     transf=pts.filter(p=>p.transfer).length,alta=pts.filter(p=>p.altaDate&&dUntil(p.altaDate)<=3&&dUntil(p.altaDate)>=0).length,
     long=pts.filter(p=>dAgo(p.admitDate)>=14).length, noAlta=pts.filter(p=>!p.altaDate).length;
   const aihMatches=pts.map(estimateAIH), aihTotal=aihMatches.reduce((s,a)=>s+(a?a.valor:0),0), aihCount=aihMatches.filter(Boolean).length;
+  const aihExcedido=pts.filter((p,i)=>aihMatches[i]&&aihMatches[i].permanencia!=null&&dAgo(p.admitDate)>aihMatches[i].permanencia).length;
   document.getElementById('dgrid').innerHTML=`
     <div class="dcard"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
     <div class="dcard"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
@@ -1068,7 +1072,8 @@ function rDash(){
     <div class="dcard"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
     <div class="dcard"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
     <div class="dcard"><div class="dcard-label">Sem Prev. Alta</div><div class="dcard-val" style="color:var(--red)">${noAlta}</div><div class="dcard-sub">indefinidos</div></div>
-    <div class="dcard"><div class="dcard-label">Receita Estimada (SIGTAP)</div><div class="dcard-val" style="color:var(--green);font-size:1.5rem">R$ ${aihTotal.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="dcard-sub">${aihCount} de ${occ} c/ estimativa</div></div>`;
+    <div class="dcard"><div class="dcard-label">Receita Estimada (SIGTAP)</div><div class="dcard-val" style="color:var(--green);font-size:1.5rem">R$ ${aihTotal.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="dcard-sub">${aihCount} de ${occ} c/ estimativa</div></div>
+    <div class="dcard"><div class="dcard-label">Acima da Permanência SIGTAP</div><div class="dcard-val" style="color:var(--yellow)">${aihExcedido}</div><div class="dcard-sub">risco de glosa</div></div>`;
   document.getElementById('dash-recentes').innerHTML = pts.slice(0,5).map(tileHTML).join('');
   badges();
 }
@@ -1184,6 +1189,7 @@ function openDetail(id){
   document.getElementById('dBed').textContent=p.bed;
   document.getElementById('dName').textContent=p.name;
   document.getElementById('dSub').textContent=`${p.age} anos · ${p.ward} · Internado desde ${fmtD(p.admitDate)}`;
+  document.getElementById('dEditBtn').onclick=()=>openEdit(p.id);
   document.getElementById('dStats').innerHTML=`
     <div class="sstat"><div class="sstat-label">Dias Internado</div><div class="sstat-val" style="color:${d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)'}">${d}d</div></div>
     <div class="sstat"><div class="sstat-label">Dias ATB</div><div class="sstat-val" style="color:var(--red)">${ad!==null?'D'+ad:'—'}</div></div>
@@ -1213,9 +1219,15 @@ function openDetail(id){
     document.getElementById('dTransf').innerHTML=`<div class="transf-title">🚑 Aguardando Central de Leitos</div><div class="fm-num">${p.fastmedic}</div><div class="transf-info"><strong>Destino:</strong> ${p.destino}<br><strong>Status:</strong> Solicitação ativa · aguardando confirmação de leito</div>`;
   } else trSec.style.display='none';
   const aih = estimateAIH(p);
-  document.getElementById('dAih').innerHTML = aih
-    ? `<div class="aih-proc">${aih.proc}</div><div class="aih-val">R$ ${aih.valor.toFixed(2).replace('.',',')}</div>`
-    : `<div class="aih-empty">Sem estimativa cadastrada para este diagnóstico.</div>`;
+  if(aih){
+    const diasInt = dAgo(p.admitDate);
+    const excedido = aih.permanencia!=null && diasInt > aih.permanencia;
+    document.getElementById('dAih').innerHTML = `<div class="aih-proc">${aih.proc}</div><div class="aih-val">R$ ${aih.valor.toFixed(2).replace('.',',')}</div>`
+      + (aih.permanencia!=null ? `<div class="aih-perm">Permanência média SIGTAP: ${aih.permanencia}d</div>` : '')
+      + (excedido ? `<div class="aih-warn">⚠️ Internação já passou da permanência média (${diasInt}d vs ${aih.permanencia}d) — risco de glosa dos dias excedentes</div>` : '');
+  } else {
+    document.getElementById('dAih').innerHTML = `<div class="aih-empty">Sem estimativa cadastrada para este diagnóstico.</div>`;
+  }
   document.getElementById('dDischarge').innerHTML=`
     <button class="disch-btn alta" onclick="dischargePatient(${p.id},'alta')"><span class="di">✅</span>Alta</button>
     <button class="disch-btn transf" onclick="dischargePatient(${p.id},'transferencia')"><span class="di">🚑</span>Transferência</button>
@@ -1228,13 +1240,46 @@ function closeDetail(){
   setTimeout(()=>document.getElementById('detOvl').classList.remove('show'),320);
 }
 
-// ── add sheet ──
+// ── add / edit sheet ──
+let editingId = null;
 function openAdd(){
+  editingId = null;
+  document.getElementById('addTitle').textContent='Novo Paciente';
+  document.getElementById('addSaveBtn').textContent='✓ Salvar Internação';
+  document.getElementById('fn').value=''; document.getElementById('fb').value=''; document.getElementById('fa').value='';
+  document.getElementById('fw').value='UTI';
+  document.getElementById('fp').value=''; document.getElementById('fm').value=''; document.getElementById('fta').value=''; document.getElementById('fpend').value='';
   document.getElementById('fad').value=new Date().toISOString().split('T')[0];
+  document.getElementById('falt').value='';
+  document.getElementById('ftr').value='nao'; document.getElementById('ffm').value=''; document.getElementById('fdest').value='';
+  toggleTrFields();
   document.getElementById('addOvl').classList.add('show');
   requestAnimationFrame(()=>document.getElementById('addSheet').classList.add('open'));
 }
-function closeAdd(){ document.getElementById('addSheet').classList.remove('open'); setTimeout(()=>document.getElementById('addOvl').classList.remove('show'),320); }
+function openEdit(id){
+  const p=pts.find(x=>x.id===id); if(!p) return;
+  editingId = id;
+  document.getElementById('addTitle').textContent='Editar Paciente';
+  document.getElementById('addSaveBtn').textContent='✓ Salvar Alterações';
+  document.getElementById('fn').value=p.name;
+  document.getElementById('fb').value=p.bed;
+  document.getElementById('fa').value=p.age||'';
+  document.getElementById('fw').value=p.ward;
+  document.getElementById('fp').value=p.pathologies.join(', ');
+  document.getElementById('fm').value=p.medications.join('\n');
+  document.getElementById('fta').value=p.antibiotics.map(a=>a.name).join('\n');
+  document.getElementById('fpend').value=p.pendings.join('\n');
+  document.getElementById('fad').value=p.admitDate;
+  document.getElementById('falt').value=p.altaDate||'';
+  document.getElementById('ftr').value=p.transfer?'sim':'nao';
+  document.getElementById('ffm').value=p.fastmedic||'';
+  document.getElementById('fdest').value=p.destino||'';
+  toggleTrFields();
+  closeDetail();
+  document.getElementById('addOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('addSheet').classList.add('open'));
+}
+function closeAdd(){ editingId=null; document.getElementById('addSheet').classList.remove('open'); setTimeout(()=>document.getElementById('addOvl').classList.remove('show'),320); }
 function closeAdd2(e){ if(e.target===document.getElementById('addOvl')) closeAdd(); }
 document.getElementById('addOvl').addEventListener('click',closeAdd2);
 function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; }
@@ -1337,23 +1382,34 @@ function runImport(){
 function savePatient(){
   const name=document.getElementById('fn').value.trim(), bed=document.getElementById('fb').value.trim();
   if(!name||!bed){ toast('⚠️ Nome e leito obrigatórios',true); return; }
-  const np={
-    id:Date.now(), bed, name,
+  const existing = editingId ? pts.find(x=>x.id===editingId) : null;
+  const newAtbNames = (document.getElementById('fta').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const antibiotics = newAtbNames.map(n=>{
+    const prev = existing && existing.antibiotics.find(a=>a.name===n);
+    return prev ? prev : {name:n, startDate:new Date().toISOString().split('T')[0]};
+  });
+  const data={
+    bed, name,
     age:parseInt(document.getElementById('fa').value)||0,
     ward:document.getElementById('fw').value,
     admitDate:document.getElementById('fad').value||new Date().toISOString().split('T')[0],
     altaDate:document.getElementById('falt').value||null,
     pathologies:(document.getElementById('fp').value||'').split(',').map(s=>s.trim()).filter(Boolean),
     medications:(document.getElementById('fm').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
-    antibiotics:(document.getElementById('fta').value||'').split('\n').map(s=>s.trim()).filter(Boolean).map(s=>({name:s,startDate:new Date().toISOString().split('T')[0]})),
+    antibiotics,
     pendings:(document.getElementById('fpend').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
     transfer:document.getElementById('ftr').value==='sim',
     fastmedic:document.getElementById('ffm').value.trim(),
     destino:document.getElementById('fdest').value.trim()
   };
-  pts.unshift(np); save(); badges(); closeAdd();
-  ['fn','fb','fa','fp','fm','fta','fpend','falt','ffm','fdest'].forEach(id=>{ document.getElementById(id).value=''; });
-  document.getElementById('ftr').value='nao'; document.getElementById('ftr-extra').style.display='none';
+  if(existing){
+    Object.assign(existing, data);
+    toast('✏️ Paciente atualizado');
+  } else {
+    pts.unshift({id:Date.now(), ...data});
+    toast('✓ Paciente salvo');
+  }
+  save(); badges(); closeAdd();
   render(curView);
 }
 
