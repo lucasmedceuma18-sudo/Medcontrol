@@ -121,6 +121,23 @@ body {
   -webkit-appearance: none;
   font-family: var(--sans);
 }
+.hbtn-imp {
+  background: var(--bdim);
+  color: var(--blue);
+  border: 1px solid rgba(59,130,246,.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: .82rem;
+  cursor: pointer;
+  -webkit-appearance: none;
+  font-family: var(--sans);
+}
+@media (max-width: 400px) {
+  .header { padding: 0 10px; gap: 6px; }
+  .hbtn, .hbtn-imp, .hbtn-clear { padding: 8px; }
+  .hbtn-label { display: none; }
+  .header-occ { padding: 4px 7px; }
+}
 
 /* ── CONTENT AREA ── */
 .content {
@@ -590,6 +607,32 @@ select.finput { cursor: pointer; }
   -webkit-appearance: none;
 }
 
+/* ── IMPORT SHEET ── */
+.imp-hint { font-size: .74rem; color: var(--t2); line-height: 1.5; }
+.imp-check { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--t2); }
+.imp-check input { width: 16px; height: 16px; accent-color: var(--blue); }
+.imp-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.imp-table { border-collapse: collapse; width: 100%; font-size: .78rem; }
+.imp-table th, .imp-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  text-align: left;
+}
+.imp-table select {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 6px; font-size: .72rem; font-family: var(--sans);
+}
+.imp-table td { color: var(--t2); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.imp-count { font-size: .72rem; color: var(--t2); margin: 8px 0; }
+
 /* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 48px 20px; color: var(--t3); grid-column: 1 / -1; }
 .empty .ei { font-size: 2.8rem; margin-bottom: 10px; }
@@ -655,7 +698,8 @@ select.finput { cursor: pointer; }
 <div class="header">
   <div class="logo"><div class="logo-cross">✚</div>MedControl</div>
   <div class="header-occ" id="hOcc"><div class="dot"></div><span>— / 100</span></div>
-  <button class="hbtn" onclick="openAdd()">＋ Paciente</button>
+  <button class="hbtn" onclick="openAdd()">＋ <span class="hbtn-label">Paciente</span></button>
+  <button class="hbtn-imp" onclick="openImport()" title="Importar lista de pacientes">📥</button>
   <button class="hbtn-clear" onclick="confirmClear()">🗑</button>
 </div>
 
@@ -788,6 +832,36 @@ select.finput { cursor: pointer; }
       <div class="form-actions">
         <button class="btn-cancel" onclick="closeAdd()">Cancelar</button>
         <button class="btn-save" onclick="savePatient()">✓ Salvar Internação</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT SHEET -->
+<div class="sheet-overlay" id="impOvl" onclick="closeImport()"></div>
+<div class="sheet" id="impSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div><div class="sheet-name">Importar Pacientes</div><div class="sheet-sub">Cole a lista do sistema do hospital</div></div>
+    <button class="sheet-close" onclick="closeImport()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-grid">
+      <div class="imp-hint">Copie a lista de pacientes internados (do Excel, do sistema do hospital ou de uma planilha) e cole abaixo — uma linha por paciente, colunas separadas por tabulação, vírgula ou ponto e vírgula. Depois de analisar, você escolhe o que cada coluna significa. Dados como medicações, ATB e pendências não vêm dessa importação — continuam sendo preenchidos manualmente depois.</div>
+      <div class="fg"><label class="flabel">Dados colados</label><textarea class="finput" id="impRaw" style="min-height:120px;" placeholder="Ex:&#10;Maria das Graças Santos	L-01	UTI&#10;José Carlos Oliveira	L-02	UTI"></textarea></div>
+      <label class="imp-check"><input type="checkbox" id="impHeader" checked> Primeira linha é cabeçalho (não importar como paciente)</label>
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closeImport()">Cancelar</button>
+        <button class="btn-save" onclick="parseImport()">🔍 Analisar</button>
+      </div>
+      <div id="impPreviewWrap" style="display:none">
+        <div class="ssec-title">Confira e ajuste as colunas</div>
+        <div class="imp-table-wrap"><table class="imp-table" id="impTable"></table></div>
+        <div class="imp-count" id="impCount"></div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="closeImport()">Cancelar</button>
+          <button class="btn-save" onclick="runImport()">✓ Importar Pacientes</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1073,6 +1147,98 @@ function closeAdd(){ document.getElementById('addSheet').classList.remove('open'
 function closeAdd2(e){ if(e.target===document.getElementById('addOvl')) closeAdd(); }
 document.getElementById('addOvl').addEventListener('click',closeAdd2);
 function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; }
+
+// ── import sheet ──
+let impRows = [];
+function openImport(){
+  document.getElementById('impOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('impSheet').classList.add('open'));
+}
+function closeImport(){
+  document.getElementById('impSheet').classList.remove('open');
+  setTimeout(()=>document.getElementById('impOvl').classList.remove('show'),320);
+}
+function closeImport2(e){ if(e.target===document.getElementById('impOvl')) closeImport(); }
+document.getElementById('impOvl').addEventListener('click',closeImport2);
+
+function splitImpLine(line){
+  const delim = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+  return line.split(delim).map(s=>s.trim());
+}
+function guessImpCol(sample, i){
+  if(i===0) return 'name';
+  if(/^[A-Za-z]{1,3}-?\d+$/.test(sample)) return 'bed';
+  if(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(sample)) return 'admitDate';
+  if(/uti|cl[ií]nica|cirurgia|pediatria|matern|obs\b/i.test(sample)) return 'ward';
+  if(/^\d{1,3}$/.test(sample)) return 'age';
+  return '';
+}
+const IMP_FIELDS = [
+  {v:'', l:'Ignorar'}, {v:'name', l:'Nome'}, {v:'bed', l:'Leito'},
+  {v:'ward', l:'Ala/Clínica'}, {v:'age', l:'Idade'}, {v:'admitDate', l:'Data internação'}
+];
+
+function parseImport(){
+  const raw = document.getElementById('impRaw').value;
+  let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(document.getElementById('impHeader').checked) lines = lines.slice(1);
+  if(!lines.length){ toast('⚠️ Cole os dados antes de analisar',true); return; }
+  impRows = lines.map(splitImpLine);
+  const nCols = Math.max(...impRows.map(r=>r.length));
+  let head = '<thead><tr>';
+  for(let i=0;i<nCols;i++){
+    const guess = guessImpCol(impRows[0][i]||'', i);
+    head += `<th><select id="impcol-${i}">${IMP_FIELDS.map(f=>`<option value="${f.v}"${f.v===guess?' selected':''}>${f.l}</option>`).join('')}</select></th>`;
+  }
+  head += '</tr></thead><tbody>';
+  impRows.slice(0,6).forEach(r=>{
+    head += '<tr>' + Array.from({length:nCols}).map((_,i)=>`<td>${(r[i]||'').replace(/</g,'&lt;')}</td>`).join('') + '</tr>';
+  });
+  head += '</tbody>';
+  document.getElementById('impTable').innerHTML = head;
+  document.getElementById('impCount').textContent = `${impRows.length} linha${impRows.length!==1?'s':''} encontrada${impRows.length!==1?'s':''}${impRows.length>6?' (mostrando as 6 primeiras)':''}`;
+  document.getElementById('impPreviewWrap').style.display='';
+}
+
+function parseImpDate(s){
+  if(!s) return null;
+  const m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if(m){ let [,d,mo,y]=m; if(y.length===2) y='20'+y; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) return s;
+  return null;
+}
+
+function runImport(){
+  const nCols = Math.max(...impRows.map(r=>r.length));
+  const mapping = [];
+  for(let i=0;i<nCols;i++){
+    const sel = document.getElementById('impcol-'+i);
+    mapping[i] = sel ? sel.value : '';
+  }
+  const nameIdx=mapping.indexOf('name'), bedIdx=mapping.indexOf('bed');
+  if(nameIdx<0||bedIdx<0){ toast('⚠️ Marque uma coluna como Nome e outra como Leito',true); return; }
+  const wardIdx=mapping.indexOf('ward'), ageIdx=mapping.indexOf('age'), admitIdx=mapping.indexOf('admitDate');
+  const todayStr=new Date().toISOString().split('T')[0];
+  const imported=[];
+  impRows.forEach((r,i)=>{
+    const name=(r[nameIdx]||'').trim(), bed=(r[bedIdx]||'').trim();
+    if(!name||!bed) return;
+    imported.push({
+      id: Date.now()+i, bed, name,
+      age: ageIdx>=0 ? (parseInt(r[ageIdx])||0) : 0,
+      ward: wardIdx>=0 ? ((r[wardIdx]||'').trim()||'Clínica Médica') : 'Clínica Médica',
+      admitDate: (admitIdx>=0 && parseImpDate(r[admitIdx])) || todayStr,
+      altaDate:null, pathologies:[], medications:[], antibiotics:[], pendings:[],
+      transfer:false, fastmedic:'', destino:''
+    });
+  });
+  if(!imported.length){ toast('⚠️ Nenhum paciente válido encontrado',true); return; }
+  pts=[...imported,...pts]; save(); badges();
+  document.getElementById('impRaw').value='';
+  document.getElementById('impPreviewWrap').style.display='none';
+  closeImport(); render(curView);
+  toast(`✅ ${imported.length} paciente${imported.length!==1?'s':''} importado${imported.length!==1?'s':''}`);
+}
 
 function savePatient(){
   const name=document.getElementById('fn').value.trim(), bed=document.getElementById('fb').value.trim();
