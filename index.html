@@ -1170,12 +1170,14 @@ function guessImpCol(sample, i){
   if(/^[A-Za-z]{1,3}-?\d+$/.test(sample)) return 'bed';
   if(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(sample)) return 'admitDate';
   if(/uti|cl[ií]nica|cirurgia|pediatria|matern|obs\b/i.test(sample)) return 'ward';
+  if(/^[a-z]\d{2,3}\s*-/i.test(sample)) return 'diag';
   if(/^\d{1,3}$/.test(sample)) return 'age';
   return '';
 }
 const IMP_FIELDS = [
   {v:'', l:'Ignorar'}, {v:'name', l:'Nome'}, {v:'bed', l:'Leito'},
-  {v:'ward', l:'Ala/Clínica'}, {v:'age', l:'Idade'}, {v:'admitDate', l:'Data internação'}
+  {v:'ward', l:'Ala/Clínica'}, {v:'age', l:'Idade'}, {v:'admitDate', l:'Data internação'},
+  {v:'diag', l:'Diagnóstico'}
 ];
 
 function parseImport(){
@@ -1217,18 +1219,19 @@ function runImport(){
   }
   const nameIdx=mapping.indexOf('name'), bedIdx=mapping.indexOf('bed');
   if(nameIdx<0||bedIdx<0){ toast('⚠️ Marque uma coluna como Nome e outra como Leito',true); return; }
-  const wardIdx=mapping.indexOf('ward'), ageIdx=mapping.indexOf('age'), admitIdx=mapping.indexOf('admitDate');
+  const wardIdx=mapping.indexOf('ward'), ageIdx=mapping.indexOf('age'), admitIdx=mapping.indexOf('admitDate'), diagIdx=mapping.indexOf('diag');
   const todayStr=new Date().toISOString().split('T')[0];
   const imported=[];
   impRows.forEach((r,i)=>{
     const name=(r[nameIdx]||'').trim(), bed=(r[bedIdx]||'').trim();
     if(!name||!bed) return;
+    const diag=diagIdx>=0 ? (r[diagIdx]||'').trim() : '';
     imported.push({
       id: Date.now()+i, bed, name,
       age: ageIdx>=0 ? (parseInt(r[ageIdx])||0) : 0,
       ward: wardIdx>=0 ? ((r[wardIdx]||'').trim()||'Clínica Médica') : 'Clínica Médica',
       admitDate: (admitIdx>=0 && parseImpDate(r[admitIdx])) || todayStr,
-      altaDate:null, pathologies:[], medications:[], antibiotics:[], pendings:[],
+      altaDate:null, pathologies: (diag && diag!=='-') ? [diag] : [], medications:[], antibiotics:[], pendings:[],
       transfer:false, fastmedic:'', destino:''
     });
   });
