@@ -132,7 +132,7 @@ body {
   -webkit-appearance: none;
   font-family: var(--sans);
 }
-@media (max-width: 400px) {
+@media (max-width: 430px) {
   .header { padding: 0 10px; gap: 6px; }
   .hbtn, .hbtn-imp, .hbtn-clear { padding: 8px; }
   .hbtn-label { display: none; }
@@ -478,6 +478,18 @@ body {
 }
 .ssec-title::after { content:''; flex:1; height:1px; background:var(--border); }
 
+.disch-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.disch-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 6px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; font-family: var(--sans);
+  font-size: .68rem; font-weight: 700; -webkit-appearance: none;
+}
+.disch-btn .di { font-size: 1.15rem; }
+.disch-btn.alta { color: var(--green); border-color: rgba(16,185,129,.3); }
+.disch-btn.transf { color: var(--cyan); border-color: rgba(6,182,212,.3); }
+.disch-btn.obito { color: var(--t2); border-color: var(--border2); }
+
 .meds-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .med-row {
   background: var(--surface);
@@ -788,6 +800,8 @@ select.finput { cursor: pointer; }
     <div id="dPendSec"><div class="ssec-title">Pendências</div><div class="pend-list" id="dPend"></div></div>
     <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
     <div id="dTransfSec"><div class="ssec-title">Transferência</div><div class="transf-box" id="dTransf"></div></div>
+    <div class="ssec-title">Finalizar Internação</div>
+    <div class="disch-row" id="dDischarge"></div>
   </div>
 </div>
 
@@ -1072,6 +1086,28 @@ function resolvePend(pid,idx){
   if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
 }
 
+// ── saída do paciente (alta / transferência / óbito) ──
+const HK = 'mc_v3_hist';
+function loadHist(){ try{ const r=localStorage.getItem(HK); if(r!==null){ const h=JSON.parse(r); if(Array.isArray(h)) return h; } }catch(e){} return []; }
+function saveHist(h){ try{ localStorage.setItem(HK,JSON.stringify(h)); }catch(e){} }
+const OUTCOME_INFO = {
+  alta: {icon:'✅', label:'Alta'},
+  transferencia: {icon:'🚑', label:'Transferência'},
+  obito: {icon:'⚫', label:'Óbito'}
+};
+function dischargePatient(id, outcome){
+  const p=pts.find(x=>x.id===id); if(!p) return;
+  const o=OUTCOME_INFO[outcome];
+  if(!confirm(`Confirmar ${o.label.toLowerCase()} de ${p.name}?\n\nO paciente sairá da lista de internados e o leito ${p.bed} ficará livre.`)) return;
+  pts=pts.filter(x=>x.id!==id);
+  const hist=loadHist();
+  hist.unshift({...p, outcome, outcomeDate:new Date().toISOString().split('T')[0]});
+  saveHist(hist);
+  save(); badges(); closeDetail();
+  render(curView);
+  toast(`${o.icon} ${p.name} — ${o.label} registrada`);
+}
+
 // ── transferências ──
 function rTransf(){
   const w=pts.filter(p=>p.transfer);
@@ -1129,6 +1165,10 @@ function openDetail(id){
     trSec.style.display='';
     document.getElementById('dTransf').innerHTML=`<div class="transf-title">🚑 Aguardando Central de Leitos</div><div class="fm-num">${p.fastmedic}</div><div class="transf-info"><strong>Destino:</strong> ${p.destino}<br><strong>Status:</strong> Solicitação ativa · aguardando confirmação de leito</div>`;
   } else trSec.style.display='none';
+  document.getElementById('dDischarge').innerHTML=`
+    <button class="disch-btn alta" onclick="dischargePatient(${p.id},'alta')"><span class="di">✅</span>Alta</button>
+    <button class="disch-btn transf" onclick="dischargePatient(${p.id},'transferencia')"><span class="di">🚑</span>Transferência</button>
+    <button class="disch-btn obito" onclick="dischargePatient(${p.id},'obito')"><span class="di">⚫</span>Óbito</button>`;
   document.getElementById('detOvl').classList.add('show');
   requestAnimationFrame(()=>document.getElementById('detSheet').classList.add('open'));
 }
@@ -1281,16 +1321,28 @@ rDash();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('service-worker.js').then((reg) => {
+      // iOS raramente checa atualização sozinho em apps instalados na tela de início —
+      // força a checagem sempre que o app volta a ficar em primeiro plano
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+      window.addEventListener('focus', () => reg.update().catch(() => {}));
       reg.addEventListener('updatefound', () => {
         const sw = reg.installing;
         if (!sw) return;
         sw.addEventListener('statechange', () => {
           if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('🔄 Nova versão instalada — feche e reabra o app');
+            toast('🔄 Atualizando para a nova versão…');
           }
         });
       });
     }).catch(() => {});
+  });
+
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloaded) return;
+    if (document.querySelector('.sheet.open')) return; // evita perder um formulário aberto; atualiza na próxima visita
+    swReloaded = true;
+    window.location.reload();
   });
 }
 </script>

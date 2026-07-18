@@ -1,4 +1,4 @@
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `medcontrol-shell-${VERSION}`;
 const FONT_CACHE = `medcontrol-fonts-${VERSION}`;
 const CURRENT_CACHES = [SHELL_CACHE, FONT_CACHE];
