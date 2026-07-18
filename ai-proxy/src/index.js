@@ -36,6 +36,15 @@ export default {
       });
     }
 
+    if (body.listModels) {
+      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${env.GEMINI_API_KEY}`);
+      const listText = await listResp.text();
+      return new Response(listText, {
+        status: listResp.status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+      });
+    }
+
     const model = body.model || 'gemini-2.0-flash';
     const geminiPayload = body.payload;
     if (!geminiPayload) {

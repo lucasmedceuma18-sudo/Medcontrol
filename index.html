@@ -957,7 +957,7 @@ const SK = 'mc_v3';
 // ── IA (Gemini via proxy Cloudflare Worker) ──
 const AI_PROXY_URL = 'https://medcontrol-ai-proxy.lucasmedceuma18.workers.dev';
 const AI_APP_SECRET = 'f46b6e0e8fe9b2a511f974cc2f3a2877a8fb351a84824393';
-const AI_MODEL = 'gemini-2.0-flash';
+const AI_MODEL = 'gemini-flash-latest';
 async function callGemini(promptText){
   const resp = await fetch(AI_PROXY_URL, {
     method:'POST',
