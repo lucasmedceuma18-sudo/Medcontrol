@@ -434,10 +434,10 @@ body {
 .sheet-header {
   padding: 14px 18px 12px;
   border-bottom: 1px solid var(--border);
-  display: flex; align-items: flex-start; gap: 12px;
   position: sticky; top: 0;
   background: var(--card); z-index: 5;
 }
+.sheet-header-row { display: flex; align-items: flex-start; gap: 12px; }
 .sheet-bed {
   background: var(--blue); color: white;
   border-radius: 10px; padding: 7px 12px;
@@ -478,14 +478,14 @@ body {
 }
 .ssec-title::after { content:''; flex:1; height:1px; background:var(--border); }
 
-.disch-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.disch-row { display: flex; gap: 8px; margin-top: 10px; }
 .disch-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 12px 6px; border-radius: 12px; border: 1px solid var(--border);
+  flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px;
+  padding: 8px 6px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface); cursor: pointer; font-family: var(--sans);
   font-size: .68rem; font-weight: 700; -webkit-appearance: none;
 }
-.disch-btn .di { font-size: 1.15rem; }
+.disch-btn .di { font-size: 1rem; }
 .disch-btn.alta { color: var(--green); border-color: rgba(16,185,129,.3); }
 .disch-btn.transf { color: var(--cyan); border-color: rgba(6,182,212,.3); }
 .disch-btn.obito { color: var(--t2); border-color: var(--border2); }
@@ -786,9 +786,12 @@ select.finput { cursor: pointer; }
 <div class="sheet" id="detSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-header">
-    <div class="sheet-bed" id="dBed"></div>
-    <div><div class="sheet-name" id="dName"></div><div class="sheet-sub" id="dSub"></div></div>
-    <button class="sheet-close" onclick="closeDetail()">✕</button>
+    <div class="sheet-header-row">
+      <div class="sheet-bed" id="dBed"></div>
+      <div><div class="sheet-name" id="dName"></div><div class="sheet-sub" id="dSub"></div></div>
+      <button class="sheet-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="disch-row" id="dDischarge"></div>
   </div>
   <div class="sheet-body">
     <div class="sstat-row" id="dStats"></div>
@@ -800,8 +803,6 @@ select.finput { cursor: pointer; }
     <div id="dPendSec"><div class="ssec-title">Pendências</div><div class="pend-list" id="dPend"></div></div>
     <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
     <div id="dTransfSec"><div class="ssec-title">Transferência</div><div class="transf-box" id="dTransf"></div></div>
-    <div class="ssec-title">Finalizar Internação</div>
-    <div class="disch-row" id="dDischarge"></div>
   </div>
 </div>
 
