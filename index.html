@@ -657,6 +657,25 @@ select.finput { cursor: pointer; }
 .imp-table td { color: var(--t2); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 .imp-count { font-size: .72rem; color: var(--t2); margin: 8px 0; }
 
+/* ── CHAT IA ── */
+.ai-fab {
+  position: fixed; right: 16px; bottom: calc(var(--tab-h) + var(--safe-bottom) + 16px);
+  width: 54px; height: 54px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  color: white; font-size: 1.4rem; border: none;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(59,130,246,.4);
+  cursor: pointer; z-index: 90; -webkit-appearance: none;
+}
+.ai-fab:active { transform: scale(.92); }
+.chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 55vh; overflow-y: auto; margin-bottom: 12px; padding-right: 2px; }
+.chat-msg { padding: 10px 14px; border-radius: 14px; font-size: .85rem; line-height: 1.5; max-width: 88%; white-space: pre-wrap; }
+.chat-msg.user { align-self: flex-end; background: var(--blue); color: white; border-bottom-right-radius: 4px; }
+.chat-msg.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 4px; }
+.chat-msg.loading { color: var(--t3); font-style: italic; }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row .finput { flex: 1; }
+
 /* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 48px 20px; color: var(--t3); grid-column: 1 / -1; }
 .empty .ei { font-size: 2.8rem; margin-bottom: 10px; }
@@ -817,6 +836,9 @@ select.finput { cursor: pointer; }
     <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
     <div id="dTransfSec"><div class="ssec-title">Transferência</div><div class="transf-box" id="dTransf"></div></div>
     <div class="ssec-title">Estimativa SIGTAP (AIH)</div><div class="aih-box" id="dAih"></div>
+    <div class="ssec-title">Resumo Clínico (IA)</div>
+    <button class="btn-cancel" style="width:100%;margin-bottom:10px;" id="dSummaryBtn">📝 Gerar Resumo</button>
+    <div class="aih-box" id="dSummary" style="display:none;"></div>
   </div>
 </div>
 
@@ -840,7 +862,12 @@ select.finput { cursor: pointer; }
           <option>UTI</option><option>Clínica Médica</option><option>Cirurgia</option><option>Pediatria</option><option>Obs/Maternidade</option>
         </select>
       </div>
-      <div class="fg"><label class="flabel">Patologias (separadas por vírgula)</label><input class="finput" id="fp" placeholder="Ex: DPOC, HAS, DM2"></div>
+      <div class="fg"><label class="flabel">Patologias (separadas por vírgula)</label>
+        <div style="display:flex;gap:8px;">
+          <input class="finput" id="fp" placeholder="Ex: DPOC, HAS, DM2" style="flex:1;">
+          <button type="button" class="hbtn-imp" style="flex-shrink:0;" onclick="suggestWithAI()" title="Sugerir ala/patologias com IA">✨</button>
+        </div>
+      </div>
       <div class="fg"><label class="flabel">Medicações (uma por linha)</label><textarea class="finput" id="fm" placeholder="Ex: Omeprazol 40mg 1x/dia"></textarea></div>
       <div class="fg"><label class="flabel">Antibióticos (um por linha)</label><textarea class="finput" id="fta" placeholder="Ex: Meropenem 2g 8/8h IV"></textarea></div>
       <div class="fg"><label class="flabel">Pendências (uma por linha)</label><textarea class="finput" id="fpend" placeholder="Ex: Aguardar hemocultura"></textarea></div>
@@ -896,6 +923,26 @@ select.finput { cursor: pointer; }
   </div>
 </div>
 
+<!-- CHAT IA -->
+<button class="ai-fab" onclick="openChat()" title="Assistente MedControl">🤖</button>
+<div class="sheet-overlay" id="chatOvl" onclick="closeChat()"></div>
+<div class="sheet" id="chatSheet" style="max-height:88vh;">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-header-row">
+      <div><div class="sheet-name">🤖 Assistente MedControl</div><div class="sheet-sub">Pergunte sobre os pacientes internados</div></div>
+      <button class="sheet-close" onclick="closeChat()">✕</button>
+    </div>
+  </div>
+  <div class="sheet-body">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-row">
+      <input class="finput" id="chatInput" placeholder="Ex: quem está em ATB há mais de 7 dias?">
+      <button class="btn-save" style="flex:0 0 auto;padding:12px 16px;" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── utils ──
 const today = new Date();
@@ -906,6 +953,25 @@ const off   = n => { const d=new Date(today); d.setDate(d.getDate()+n); return d
 
 // ── storage ──
 const SK = 'mc_v3';
+
+// ── IA (Gemini via proxy Cloudflare Worker) ──
+const AI_PROXY_URL = 'https://medcontrol-ai-proxy.lucasmedceuma18.workers.dev';
+const AI_APP_SECRET = 'f46b6e0e8fe9b2a511f974cc2f3a2877a8fb351a84824393';
+const AI_MODEL = 'gemini-2.0-flash';
+async function callGemini(promptText){
+  const resp = await fetch(AI_PROXY_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-App-Secret':AI_APP_SECRET},
+    body: JSON.stringify({ model:AI_MODEL, payload:{ contents:[{parts:[{text:promptText}]}] } })
+  });
+  if(!resp.ok){
+    let msg = 'HTTP '+resp.status;
+    try{ const err=await resp.json(); msg = err.error?.message || err.error || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const data = await resp.json();
+  return (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) || '';
+}
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(pts)); toast('💾 Dados salvos'); }catch(e){ toast('⚠️ Erro ao salvar',true); } }
 function load(){ try{ const r=localStorage.getItem(SK); if(r!==null){ const p=JSON.parse(r); if(Array.isArray(p)) return p; } }catch(e){} return null; }
 
@@ -1160,6 +1226,20 @@ function dischargePatient(id, outcome){
   toast(`${o.icon} ${p.name} — ${o.label} registrada`);
 }
 
+async function generateSummary(id){
+  const p=pts.find(x=>x.id===id); if(!p) return;
+  const box=document.getElementById('dSummary');
+  box.style.display=''; box.innerHTML='<div class="aih-empty">🤖 Gerando resumo…</div>';
+  try{
+    const info = `Nome: ${p.name}; Idade: ${p.age}; Leito: ${p.bed}; Ala: ${p.ward}; Internado desde ${fmtD(p.admitDate)} (${dAgo(p.admitDate)} dias); Patologias: ${p.pathologies.join(', ')||'—'}; Medicações: ${p.medications.join('; ')||'—'}; Antibióticos: ${p.antibiotics.map(a=>a.name+' (D'+dAgo(a.startDate)+')').join('; ')||'nenhum'}; Pendências: ${p.pendings.join('; ')||'nenhuma'}; Previsão de alta: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}; Transferência: ${p.transfer?('aguardando central de leitos, '+p.fastmedic+' → '+p.destino):'não aguarda transferência'}.`;
+    const prompt = `Gere um resumo clínico breve (3 a 5 frases, em português, tom objetivo de passagem de plantão hospitalar) com base SOMENTE nestes dados, sem inventar informação adicional: ${info}`;
+    const text = await callGemini(prompt);
+    box.innerHTML = `<div class="aih-proc" style="white-space:pre-wrap;">${(text||'(sem resposta)').replace(/</g,'&lt;')}</div>`;
+  }catch(e){
+    box.innerHTML = `<div class="aih-empty">⚠️ Erro ao gerar resumo: ${e.message}</div>`;
+  }
+}
+
 // ── transferências ──
 function rTransf(){
   const w=pts.filter(p=>p.transfer);
@@ -1190,6 +1270,9 @@ function openDetail(id){
   document.getElementById('dName').textContent=p.name;
   document.getElementById('dSub').textContent=`${p.age} anos · ${p.ward} · Internado desde ${fmtD(p.admitDate)}`;
   document.getElementById('dEditBtn').onclick=()=>openEdit(p.id);
+  document.getElementById('dSummaryBtn').onclick=()=>generateSummary(p.id);
+  document.getElementById('dSummary').style.display='none';
+  document.getElementById('dSummary').innerHTML='';
   document.getElementById('dStats').innerHTML=`
     <div class="sstat"><div class="sstat-label">Dias Internado</div><div class="sstat-val" style="color:${d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)'}">${d}d</div></div>
     <div class="sstat"><div class="sstat-label">Dias ATB</div><div class="sstat-val" style="color:var(--red)">${ad!==null?'D'+ad:'—'}</div></div>
@@ -1284,6 +1367,24 @@ function closeAdd2(e){ if(e.target===document.getElementById('addOvl')) closeAdd
 document.getElementById('addOvl').addEventListener('click',closeAdd2);
 function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; }
 
+async function suggestWithAI(){
+  const raw = document.getElementById('fp').value.trim();
+  if(!raw){ toast('⚠️ Escreva o diagnóstico/queixa antes de pedir sugestão',true); return; }
+  toast('🤖 Consultando IA…');
+  try{
+    const prompt = `Classifique este caso de paciente hospitalar em UMA destas alas: UTI, Clínica Médica, Cirurgia, Pediatria, Obs/Maternidade. Também reescreva as patologias de forma organizada, separadas por vírgula. Responda SOMENTE com um JSON válido, sem texto antes ou depois, no formato {"ala":"...","patologias":"..."}. Caso do paciente: ${raw}`;
+    const answer = await callGemini(prompt);
+    const jsonMatch = answer.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('resposta em formato inesperado');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if(parsed.ala) document.getElementById('fw').value = parsed.ala;
+    if(parsed.patologias) document.getElementById('fp').value = parsed.patologias;
+    toast('✨ Sugestão aplicada — confira antes de salvar');
+  }catch(e){
+    toast('⚠️ Erro na sugestão da IA: '+e.message, true);
+  }
+}
+
 // ── import sheet ──
 let impRows = [];
 function openImport(){
@@ -1377,6 +1478,55 @@ function runImport(){
   document.getElementById('impPreviewWrap').style.display='none';
   closeImport(); render(curView);
   toast(`✅ ${imported.length} paciente${imported.length!==1?'s':''} importado${imported.length!==1?'s':''}`);
+}
+
+// ── chat IA ──
+function openChat(){
+  document.getElementById('chatOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('chatSheet').classList.add('open'));
+}
+function closeChat(){
+  document.getElementById('chatSheet').classList.remove('open');
+  setTimeout(()=>document.getElementById('chatOvl').classList.remove('show'),320);
+}
+function closeChat2(e){ if(e.target===document.getElementById('chatOvl')) closeChat(); }
+document.getElementById('chatOvl').addEventListener('click',closeChat2);
+document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+
+function buildRosterContext(){
+  if(!pts.length) return 'Nenhum paciente internado no momento.';
+  return pts.map(p=>{
+    const d=dAgo(p.admitDate);
+    const atbInfo = p.antibiotics.length ? p.antibiotics.map(a=>`${a.name} (D${dAgo(a.startDate)})`).join('; ') : 'nenhum';
+    return `Leito ${p.bed} — ${p.name}, ${p.age}a, ${p.ward}, internado há ${d}d. Patologias: ${p.pathologies.join(', ')||'—'}. ATB: ${atbInfo}. Pendências: ${p.pendings.join('; ')||'nenhuma'}. Alta prevista: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}. Transferência: ${p.transfer?('sim, '+p.fastmedic+' → '+p.destino):'não'}.`;
+  }).join('\n');
+}
+function appendChatMsg(role, text, loading=false){
+  const log=document.getElementById('chatLog');
+  const div=document.createElement('div');
+  div.className='chat-msg '+role+(loading?' loading':'');
+  div.textContent=text;
+  log.appendChild(div);
+  log.scrollTop=log.scrollHeight;
+  return div;
+}
+async function sendChat(){
+  const input=document.getElementById('chatInput');
+  const question=input.value.trim();
+  if(!question) return;
+  appendChatMsg('user', question);
+  input.value='';
+  const loadingMsg = appendChatMsg('ai', '…', true);
+  try{
+    const prompt = `Você é um assistente de apoio administrativo para a equipe de um hospital, dentro do app MedControl. Responda de forma breve e objetiva, em português, com base SOMENTE na lista de pacientes internados abaixo. Não invente informação que não esteja na lista; se não souber, diga que não tem essa informação.\n\nPACIENTES INTERNADOS:\n${buildRosterContext()}\n\nPERGUNTA: ${question}`;
+    const answer = await callGemini(prompt);
+    loadingMsg.textContent = answer || '(sem resposta)';
+    loadingMsg.classList.remove('loading');
+  }catch(e){
+    loadingMsg.textContent = '⚠️ Erro ao consultar IA: '+e.message;
+    loadingMsg.classList.remove('loading');
+  }
+  document.getElementById('chatLog').scrollTop = document.getElementById('chatLog').scrollHeight;
 }
 
 function savePatient(){
