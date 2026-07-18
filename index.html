@@ -804,7 +804,7 @@ const off   = n => { const d=new Date(today); d.setDate(d.getDate()+n); return d
 // ── storage ──
 const SK = 'mc_v3';
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(pts)); toast('💾 Dados salvos'); }catch(e){ toast('⚠️ Erro ao salvar',true); } }
-function load(){ try{ const r=localStorage.getItem(SK); if(r){ const p=JSON.parse(r); if(Array.isArray(p)&&p.length) return p; } }catch(e){} return null; }
+function load(){ try{ const r=localStorage.getItem(SK); if(r!==null){ const p=JSON.parse(r); if(Array.isArray(p)) return p; } }catch(e){} return null; }
 
 function toast(msg, err=false){
   const old=document.getElementById('_t'); if(old) old.remove();
@@ -1098,9 +1098,9 @@ function savePatient(){
 }
 
 function confirmClear(){
-  if(confirm('⚠️ Apagar todos os dados e voltar ao exemplo?\n\nEssa ação não pode ser desfeita.')){
-    localStorage.removeItem(SK); pts=JSON.parse(JSON.stringify(DEMO));
-    toast('🔄 Dados resetados'); badges(); render(curView);
+  if(confirm('⚠️ Apagar todos os pacientes cadastrados?\n\nEssa ação não pode ser desfeita.')){
+    pts=[]; save(); badges(); render(curView);
+    toast('🗑️ Todos os pacientes foram apagados');
   }
 }
 
