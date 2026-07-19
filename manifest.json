@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "MedControl — Gestão Hospitalar",
-  "short_name": "MedControl",
+  "name": "Passagem de Plantão — Gestão Hospitalar",
+  "short_name": "Passagem",
   "description": "Acompanhamento de pacientes internados: leitos, antibioticoterapia, pendências, previsão de alta e transferências.",
   "lang": "pt-BR",
   "start_url": "./index.html",

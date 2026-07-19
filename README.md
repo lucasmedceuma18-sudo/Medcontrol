@@ -1,4 +1,6 @@
-# ✚ MedControl — Sistema de Gestão Hospitalar
+# ✚ Passagem de Plantão — Sistema de Gestão Hospitalar
+
+> Nome anterior do projeto: MedControl.
 
 > Projeto desenvolvido com Claude (claude.ai) e pronto para evolução no **Claude Code**.
 

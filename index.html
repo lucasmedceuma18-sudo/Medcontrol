@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MedControl">
+<meta name="apple-mobile-web-app-title" content="Passagem de Plantão">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0c1120">
-<title>MedControl</title>
+<title>Passagem de Plantão</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -137,6 +137,10 @@ body {
   .hbtn, .hbtn-imp, .hbtn-clear { padding: 8px; }
   .hbtn-label { display: none; }
   .header-occ { padding: 4px 7px; }
+  .logo-full { display: none; }
+}
+@media (max-width: 360px) {
+  .header-occ { display: none; }
 }
 
 /* ── CONTENT AREA ── */
@@ -739,7 +743,7 @@ select.finput { cursor: pointer; }
 
 <!-- HEADER -->
 <div class="header">
-  <div class="logo"><div class="logo-cross">✚</div>MedControl</div>
+  <div class="logo"><div class="logo-cross">✚</div>Passagem<span class="logo-full"> de Plantão</span></div>
   <div class="header-occ" id="hOcc"><div class="dot"></div><span>— / 100</span></div>
   <button class="hbtn" onclick="openAdd()">＋ <span class="hbtn-label">Paciente</span></button>
   <button class="hbtn-imp" onclick="openImport()" title="Importar lista de pacientes">📥</button>
@@ -924,13 +928,13 @@ select.finput { cursor: pointer; }
 </div>
 
 <!-- CHAT IA -->
-<button class="ai-fab" onclick="openChat()" title="Assistente MedControl">🤖</button>
+<button class="ai-fab" onclick="openChat()" title="Assistente Passagem de Plantão">🤖</button>
 <div class="sheet-overlay" id="chatOvl" onclick="closeChat()"></div>
 <div class="sheet" id="chatSheet" style="max-height:88vh;">
   <div class="sheet-handle"></div>
   <div class="sheet-header">
     <div class="sheet-header-row">
-      <div><div class="sheet-name">🤖 Assistente MedControl</div><div class="sheet-sub">Pergunte sobre os pacientes internados</div></div>
+      <div><div class="sheet-name">🤖 Assistente Passagem de Plantão</div><div class="sheet-sub">Pergunte sobre os pacientes internados</div></div>
       <button class="sheet-close" onclick="closeChat()">✕</button>
     </div>
   </div>
@@ -1518,7 +1522,7 @@ async function sendChat(){
   input.value='';
   const loadingMsg = appendChatMsg('ai', '…', true);
   try{
-    const prompt = `Você é um assistente de apoio administrativo para a equipe de um hospital, dentro do app MedControl. Responda de forma breve e objetiva, em português, com base SOMENTE na lista de pacientes internados abaixo. Não invente informação que não esteja na lista; se não souber, diga que não tem essa informação.\n\nPACIENTES INTERNADOS:\n${buildRosterContext()}\n\nPERGUNTA: ${question}`;
+    const prompt = `Você é um assistente de apoio administrativo para a equipe de um hospital, dentro do app Passagem de Plantão. Responda de forma breve e objetiva, em português, com base SOMENTE na lista de pacientes internados abaixo. Não invente informação que não esteja na lista; se não souber, diga que não tem essa informação.\n\nPACIENTES INTERNADOS:\n${buildRosterContext()}\n\nPERGUNTA: ${question}`;
     const answer = await callGemini(prompt);
     loadingMsg.textContent = answer || '(sem resposta)';
     loadingMsg.classList.remove('loading');
