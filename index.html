@@ -689,6 +689,8 @@ select.finput { cursor: pointer; }
 }
 .auth-box { width: 100%; max-width: 360px; }
 .auth-error { color: var(--red); font-size: .8rem; background: var(--rdim); border: 1px solid rgba(239,68,68,.3); border-radius: 10px; padding: 10px 12px; }
+.auth-info { color: var(--t2); font-size: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.auth-link { background: none; border: none; color: var(--blue); font-family: var(--sans); font-size: .82rem; font-weight: 600; cursor: pointer; padding: 6px; text-decoration: underline; -webkit-appearance: none; }
 
 /* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 48px 20px; color: var(--t3); grid-column: 1 / -1; }
@@ -963,12 +965,15 @@ select.finput { cursor: pointer; }
   <div class="auth-box">
     <div class="logo" style="justify-content:center;margin-bottom:22px;font-size:1.3rem;"><div class="logo-cross">✚</div>Passagem de Plantão</div>
     <div class="form-grid">
+      <div class="auth-info" id="authResetInfo" style="display:none;">Informe seu usuário, o código da equipe e uma nova senha.</div>
       <div class="fg"><label class="flabel">Usuário</label><input class="finput" id="authUser" autocomplete="username" onkeydown="if(event.key==='Enter') submitAuth()"></div>
-      <div class="fg"><label class="flabel">Senha</label><input class="finput" id="authPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAuth()"></div>
+      <div class="fg"><label class="flabel" id="authPassLabel">Senha</label><input class="finput" id="authPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAuth()"></div>
       <div class="fg" id="authInviteRow" style="display:none;"><label class="flabel">Código da equipe</label><input class="finput" id="authInvite" placeholder="Peça pra quem administra o app"></div>
       <div class="auth-error" id="authError" style="display:none;"></div>
       <button class="btn-save" id="authSubmitBtn" onclick="submitAuth()">Entrar</button>
       <button class="btn-cancel" id="authToggleBtn" onclick="toggleAuthMode()">Criar conta nova</button>
+      <button class="auth-link" id="authForgotBtn" onclick="setAuthMode('reset')">Esqueci minha senha</button>
+      <button class="auth-link" id="authBackBtn" style="display:none;" onclick="setAuthMode('login')">Voltar para login</button>
     </div>
   </div>
 </div>
@@ -979,7 +984,6 @@ const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
 const dUntil= s => s ? Math.ceil((new Date(s+'T12:00:00') - today)/86400000) : null;
 const fmtD  = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-const off   = n => { const d=new Date(today); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
 
 // ── storage ──
 const SK = 'mc_v3';
@@ -1053,62 +1057,7 @@ function estimateAIH(p){
   return AIH_ESTIMATIVAS[m[1]] || null;
 }
 
-// ── demo data ──
-const DEMO = [
-  {id:1,bed:'L-01',name:'Maria das Graças Santos',age:67,ward:'UTI',admitDate:off(-12),altaDate:off(3),
-   pathologies:['Sepse pulmonar','HAS','DM2'],
-   medications:['Noradrenalina 0,1mcg/kg/min IV','Insulina Regular IC','Metoprolol 25mg 12/12h','Omeprazol 40mg 1x/dia'],
-   antibiotics:[{name:'Meropenem 2g 8/8h IV',startDate:off(-5)},{name:'Vancomicina 1g 12/12h IV',startDate:off(-5)}],
-   pendings:['Resultado hemoculturas (48h)','Ajuste dose Vancomicina','Fisioterapia respiratória'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:2,bed:'L-02',name:'José Carlos Oliveira',age:54,ward:'UTI',admitDate:off(-8),altaDate:off(5),
-   pathologies:['IAM com CSST','IC FE 35%','HAS'],
-   medications:['AAS 100mg 1x/dia','Clopidogrel 75mg 1x/dia','Enalapril 10mg 12/12h','Furosemida 40mg 2x/dia'],
-   antibiotics:[],pendings:['Ecocardiograma pendente','Liberação p/ UTI Cardiológica'],
-   transfer:true,fastmedic:'FM-2024-00812',destino:'HGF – UTI Cardiológica'},
-  {id:3,bed:'L-07',name:'Antônia Lima Ferreira',age:78,ward:'Clínica Médica',admitDate:off(-5),altaDate:off(2),
-   pathologies:['AVC isquêmico','FA crônica','HAS','IRC moderada'],
-   medications:['Varfarina 5mg 1x/dia','Anlodipino 10mg 1x/dia','AAS 100mg 1x/dia','Sinvastatina 40mg 1x/dia'],
-   antibiotics:[{name:'Ceftriaxona 2g 24/24h IV',startDate:off(-3)}],
-   pendings:['TC crânio de controle','Parecer neurologia','INR de controle'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:4,bed:'L-15',name:'Francisco Sousa Costa',age:42,ward:'Cirurgia',admitDate:off(-3),altaDate:off(4),
-   pathologies:['Apendicite perfurada','Peritonite localizada'],
-   medications:['Dipirona 1g 6/6h IV','Morfina 5mg SN','Metoclopramida 10mg 8/8h'],
-   antibiotics:[{name:'Pip/Tazob. 4,5g 6/6h IV',startDate:off(-3)},{name:'Metronidazol 500mg 8/8h IV',startDate:off(-3)}],
-   pendings:['Dieta VO após 48h','Retirada dreno D5'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:5,bed:'L-23',name:'Raimunda Alves Pereira',age:31,ward:'Obs/Maternidade',admitDate:off(-2),altaDate:off(1),
-   pathologies:['Pré-eclâmpsia grave','IG 34 semanas'],
-   medications:['Sulfato de Magnésio 4g IV','Hidralazina 10mg EV SN','Betametasona 12mg IM','Nifedipino 10mg SL SN'],
-   antibiotics:[],pendings:['Monitorização fetal contínua','Parto programado amanhã'],
-   transfer:true,fastmedic:'FM-2024-00833',destino:'MEAC – UTI Neonatal'},
-  {id:6,bed:'L-31',name:'Pedro Henrique Nascimento',age:9,ward:'Pediatria',admitDate:off(-4),altaDate:off(2),
-   pathologies:['Crise asmática grave','Rinite alérgica'],
-   medications:['Salbutamol 2,5mg nebulização 4/4h','Prednisolona 1mg/kg/dia VO','Dipirona 250mg 6/6h SN'],
-   antibiotics:[],pendings:['Peak flow controle manhã','Orientação familiar bombinha'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:7,bed:'L-44',name:'Luiza Mendes Barros',age:61,ward:'Clínica Médica',admitDate:off(-18),altaDate:off(7),
-   pathologies:['DPOC exacerbado','Cor pulmonale','HAS'],
-   medications:['Formoterol+Budesonida 2x/dia','Ipratrópio nebulização 6/6h','Furosemida 40mg 1x/dia','Amiodarona 200mg 1x/dia'],
-   antibiotics:[{name:'Levofloxacino 500mg 24/24h VO',startDate:off(-7)}],
-   pendings:['Gasometria de controle','Espirometria após melhora'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:8,bed:'L-52',name:'Carlos Roberto Melo',age:48,ward:'Cirurgia',admitDate:off(-6),altaDate:off(1),
-   pathologies:['Colecistite aguda litiásica','DM2'],
-   medications:['Tramadol 100mg 8/8h IV','Dipirona 1g 6/6h IV','Insulina NPH 20UI 12/12h'],
-   antibiotics:[{name:'Cefazolina 2g 8/8h IV',startDate:off(-2)}],
-   pendings:['Laparoscopia amanhã','Glicemia capilar 4x/dia'],
-   transfer:false,fastmedic:'',destino:''},
-  {id:9,bed:'L-60',name:'Marlene Souza Gomes',age:83,ward:'Clínica Médica',admitDate:off(-22),altaDate:null,
-   pathologies:['Pneumonia aspirativa','Demência avançada','HAS','DM2','IRC grave'],
-   medications:['Haloperidol 2mg SN','Donepezila 5mg 1x/dia','Losartana 50mg 1x/dia','Heparina 5000UI 12/12h SC'],
-   antibiotics:[{name:'Ampicilina/Sulbactam 3g 6/6h IV',startDate:off(-10)},{name:'Claritromicina 500mg 12/12h VO',startDate:off(-10)}],
-   pendings:['Discussão familiar prognóstico','Fonoaudiologia (disfagia)','TC tórax de controle','Avaliação cuidados paliativos'],
-   transfer:true,fastmedic:'FM-2024-00799',destino:'Hospital de Retaguarda – leito crônico'}
-];
-
-let pts = load() || JSON.parse(JSON.stringify(DEMO));
+let pts = load() || [];
 let curView = 'dash';
 let wardF = 'all';
 
@@ -1574,10 +1523,25 @@ async function sendChat(){
 
 // ── login / cadastro / sincronização ──
 function toggleAuthMode(){
-  authMode = authMode === 'login' ? 'register' : 'login';
-  document.getElementById('authInviteRow').style.display = authMode === 'register' ? '' : 'none';
-  document.getElementById('authSubmitBtn').textContent = authMode === 'register' ? 'Criar conta' : 'Entrar';
-  document.getElementById('authToggleBtn').textContent = authMode === 'register' ? 'Já tenho conta' : 'Criar conta nova';
+  setAuthMode(authMode === 'login' ? 'register' : 'login');
+}
+function setAuthMode(mode){
+  authMode = mode;
+  const inviteRow = document.getElementById('authInviteRow');
+  const passLabel = document.getElementById('authPassLabel');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const toggleBtn = document.getElementById('authToggleBtn');
+  const forgotBtn = document.getElementById('authForgotBtn');
+  const backBtn = document.getElementById('authBackBtn');
+  const resetInfo = document.getElementById('authResetInfo');
+  inviteRow.style.display = (mode === 'register' || mode === 'reset') ? '' : 'none';
+  resetInfo.style.display = mode === 'reset' ? '' : 'none';
+  passLabel.textContent = mode === 'reset' ? 'Nova senha' : 'Senha';
+  submitBtn.textContent = mode === 'register' ? 'Criar conta' : mode === 'reset' ? 'Redefinir senha' : 'Entrar';
+  toggleBtn.style.display = mode === 'reset' ? 'none' : '';
+  toggleBtn.textContent = mode === 'register' ? 'Já tenho conta' : 'Criar conta nova';
+  forgotBtn.style.display = mode === 'login' ? '' : 'none';
+  backBtn.style.display = mode === 'reset' ? '' : 'none';
   document.getElementById('authError').style.display = 'none';
 }
 async function submitAuth(){
@@ -1586,10 +1550,11 @@ async function submitAuth(){
   const errBox = document.getElementById('authError');
   errBox.style.display = 'none';
   if(!username || !password){ errBox.textContent='Preencha usuário e senha'; errBox.style.display=''; return; }
-  const body = { username, password };
-  if(authMode === 'register') body.inviteCode = document.getElementById('authInvite').value.trim();
+  const endpoint = authMode === 'reset' ? 'reset-password' : authMode;
+  const body = authMode === 'reset' ? { username, newPassword: password } : { username, password };
+  if(authMode === 'register' || authMode === 'reset') body.inviteCode = document.getElementById('authInvite').value.trim();
   try{
-    const resp = await fetch(API_URL + '/' + authMode, {
+    const resp = await fetch(API_URL + '/' + endpoint, {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
     const data = await resp.json();
@@ -1599,6 +1564,8 @@ async function submitAuth(){
     localStorage.setItem('mc_username', currentUsername);
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('authPass').value = '';
+    if(authMode === 'reset') toast('🔑 Senha redefinida com sucesso');
+    setAuthMode('login');
     await syncNow();
     badges(); render(curView);
   }catch(e){
@@ -1623,14 +1590,14 @@ async function syncNow(){
       body: JSON.stringify({ patients: pts, history: currentHist, deletedPatientIds: deletedIds })
     });
     if(resp.status === 401){ syncing=false; doLogout(); return; }
-    if(!resp.ok){ syncing=false; return; }
+    if(!resp.ok){ syncing=false; toast('⚠️ Falha ao sincronizar (servidor). Tente novamente.',true); return; }
     const state = await resp.json();
     pts = state.patients;
     saveHist(state.history);
     localStorage.setItem(SK, JSON.stringify(pts));
     localStorage.removeItem('mc_v3_deleted');
     badges(); render(curView);
-  }catch(e){ /* offline — os dados locais continuam intactos, tenta de novo depois */ }
+  }catch(e){ toast('⚠️ Sem conexão — dados locais mantidos, sincroniza quando voltar',true); }
   syncing = false;
 }
 function forceSync(){

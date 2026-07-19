@@ -100,6 +100,28 @@ export default {
       return json({ token, username: body.username });
     }
 
+    if (request.method === 'POST' && url.pathname === '/reset-password') {
+      const body = await request.json().catch(() => null);
+      if (!body || !body.username || !body.inviteCode || !body.newPassword) {
+        return json({ error: 'campos obrigatórios: username, inviteCode, newPassword' }, 400);
+      }
+      if (body.inviteCode !== env.INVITE_CODE) {
+        return json({ error: 'código da equipe inválido' }, 403);
+      }
+      if (body.newPassword.length < 6) {
+        return json({ error: 'senha deve ter ao menos 6 caracteres' }, 400);
+      }
+      const user = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(body.username).first();
+      if (!user) return json({ error: 'usuário não encontrado' }, 404);
+      const { hash, salt } = await hashPassword(body.newPassword);
+      await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(hash, salt, user.id).run();
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+      const token = newToken();
+      await env.DB.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
+        .bind(token, user.id, Date.now() + SESSION_TTL_MS).run();
+      return json({ token, username: body.username });
+    }
+
     if (request.method === 'POST' && url.pathname === '/sync') {
       const userId = await getUserFromToken(env, request);
       if (!userId) return json({ error: 'não autenticado' }, 401);
