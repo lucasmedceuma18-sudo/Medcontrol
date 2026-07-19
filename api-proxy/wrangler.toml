@@ -1,0 +1,11 @@
+name = "medcontrol-api"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "medcontrol-db"
+database_id = "a55733f3-e3e8-418f-8a79-695626024e9b"
+
+[observability]
+enabled = true

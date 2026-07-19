@@ -680,6 +680,16 @@ select.finput { cursor: pointer; }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row .finput { flex: 1; }
 
+/* ── LOGIN/CADASTRO ── */
+.auth-screen {
+  position: fixed; inset: 0; z-index: 500;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.auth-box { width: 100%; max-width: 360px; }
+.auth-error { color: var(--red); font-size: .8rem; background: var(--rdim); border: 1px solid rgba(239,68,68,.3); border-radius: 10px; padding: 10px 12px; }
+
 /* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 48px 20px; color: var(--t3); grid-column: 1 / -1; }
 .empty .ei { font-size: 2.8rem; margin-bottom: 10px; }
@@ -747,7 +757,8 @@ select.finput { cursor: pointer; }
   <div class="header-occ" id="hOcc"><div class="dot"></div><span>— / 100</span></div>
   <button class="hbtn" onclick="openAdd()">＋ <span class="hbtn-label">Paciente</span></button>
   <button class="hbtn-imp" onclick="openImport()" title="Importar lista de pacientes">📥</button>
-  <button class="hbtn-clear" onclick="confirmClear()">🗑</button>
+  <button class="hbtn-imp" onclick="forceSync()" title="Sincronizar agora">🔄</button>
+  <button class="hbtn-clear" onclick="doLogout()" title="Sair da conta">🚪</button>
 </div>
 
 <!-- CONTENT -->
@@ -947,6 +958,21 @@ select.finput { cursor: pointer; }
   </div>
 </div>
 
+<!-- LOGIN / CADASTRO -->
+<div class="auth-screen" id="authScreen" style="display:none;">
+  <div class="auth-box">
+    <div class="logo" style="justify-content:center;margin-bottom:22px;font-size:1.3rem;"><div class="logo-cross">✚</div>Passagem de Plantão</div>
+    <div class="form-grid">
+      <div class="fg"><label class="flabel">Usuário</label><input class="finput" id="authUser" autocomplete="username" onkeydown="if(event.key==='Enter') submitAuth()"></div>
+      <div class="fg"><label class="flabel">Senha</label><input class="finput" id="authPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAuth()"></div>
+      <div class="fg" id="authInviteRow" style="display:none;"><label class="flabel">Código da equipe</label><input class="finput" id="authInvite" placeholder="Peça pra quem administra o app"></div>
+      <div class="auth-error" id="authError" style="display:none;"></div>
+      <button class="btn-save" id="authSubmitBtn" onclick="submitAuth()">Entrar</button>
+      <button class="btn-cancel" id="authToggleBtn" onclick="toggleAuthMode()">Criar conta nova</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── utils ──
 const today = new Date();
@@ -962,6 +988,13 @@ const SK = 'mc_v3';
 const AI_PROXY_URL = 'https://medcontrol-ai-proxy.lucasmedceuma18.workers.dev';
 const AI_APP_SECRET = 'f46b6e0e8fe9b2a511f974cc2f3a2877a8fb351a84824393';
 const AI_MODEL = 'gemini-flash-latest';
+
+// ── Banco compartilhado (login + sync offline-first) ──
+const API_URL = 'https://medcontrol-api.lucasmedceuma18.workers.dev';
+let sessionToken = localStorage.getItem('mc_token') || null;
+let currentUsername = localStorage.getItem('mc_username') || null;
+let authMode = 'login';
+let syncing = false;
 async function callGemini(promptText){
   const resp = await fetch(AI_PROXY_URL, {
     method:'POST',
@@ -1204,8 +1237,9 @@ function rPend(){
 
 function resolvePend(pid,idx){
   const p=pts.find(x=>x.id===pid); if(!p) return;
-  p.pendings.splice(idx,1); save(); badges(); rPend();
+  p.pendings.splice(idx,1); p.updatedAt=Date.now(); save(); badges(); rPend();
   if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
+  syncNow();
 }
 
 // ── saída do paciente (alta / transferência / óbito) ──
@@ -1223,11 +1257,15 @@ function dischargePatient(id, outcome){
   if(!confirm(`Confirmar ${o.label.toLowerCase()} de ${p.name}?\n\nO paciente sairá da lista de internados e o leito ${p.bed} ficará livre.`)) return;
   pts=pts.filter(x=>x.id!==id);
   const hist=loadHist();
-  hist.unshift({...p, outcome, outcomeDate:new Date().toISOString().split('T')[0]});
+  hist.unshift({...p, outcome, outcomeDate:new Date().toISOString().split('T')[0], updatedAt:Date.now()});
   saveHist(hist);
+  const deleted = JSON.parse(localStorage.getItem('mc_v3_deleted')||'[]');
+  deleted.push(id);
+  localStorage.setItem('mc_v3_deleted', JSON.stringify(deleted));
   save(); badges(); closeDetail();
   render(curView);
   toast(`${o.icon} ${p.name} — ${o.label} registrada`);
+  syncNow();
 }
 
 async function generateSummary(id){
@@ -1468,12 +1506,12 @@ function runImport(){
     if(!name||!bed) return;
     const diag=diagIdx>=0 ? (r[diagIdx]||'').trim() : '';
     imported.push({
-      id: Date.now()+i, bed, name,
+      id: String(Date.now()+i), bed, name,
       age: ageIdx>=0 ? (parseInt(r[ageIdx])||0) : 0,
       ward: wardIdx>=0 ? ((r[wardIdx]||'').trim()||'Clínica Médica') : 'Clínica Médica',
       admitDate: (admitIdx>=0 && parseImpDate(r[admitIdx])) || todayStr,
       altaDate:null, pathologies: (diag && diag!=='-') ? [diag] : [], medications:[], antibiotics:[], pendings:[],
-      transfer:false, fastmedic:'', destino:''
+      transfer:false, fastmedic:'', destino:'', updatedAt: Date.now()
     });
   });
   if(!imported.length){ toast('⚠️ Nenhum paciente válido encontrado',true); return; }
@@ -1482,6 +1520,7 @@ function runImport(){
   document.getElementById('impPreviewWrap').style.display='none';
   closeImport(); render(curView);
   toast(`✅ ${imported.length} paciente${imported.length!==1?'s':''} importado${imported.length!==1?'s':''}`);
+  syncNow();
 }
 
 // ── chat IA ──
@@ -1533,6 +1572,72 @@ async function sendChat(){
   document.getElementById('chatLog').scrollTop = document.getElementById('chatLog').scrollHeight;
 }
 
+// ── login / cadastro / sincronização ──
+function toggleAuthMode(){
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('authInviteRow').style.display = authMode === 'register' ? '' : 'none';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'register' ? 'Criar conta' : 'Entrar';
+  document.getElementById('authToggleBtn').textContent = authMode === 'register' ? 'Já tenho conta' : 'Criar conta nova';
+  document.getElementById('authError').style.display = 'none';
+}
+async function submitAuth(){
+  const username = document.getElementById('authUser').value.trim();
+  const password = document.getElementById('authPass').value;
+  const errBox = document.getElementById('authError');
+  errBox.style.display = 'none';
+  if(!username || !password){ errBox.textContent='Preencha usuário e senha'; errBox.style.display=''; return; }
+  const body = { username, password };
+  if(authMode === 'register') body.inviteCode = document.getElementById('authInvite').value.trim();
+  try{
+    const resp = await fetch(API_URL + '/' + authMode, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+    if(!resp.ok){ errBox.textContent = data.error || 'Erro ao entrar'; errBox.style.display=''; return; }
+    sessionToken = data.token; currentUsername = data.username;
+    localStorage.setItem('mc_token', sessionToken);
+    localStorage.setItem('mc_username', currentUsername);
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('authPass').value = '';
+    await syncNow();
+    badges(); render(curView);
+  }catch(e){
+    errBox.textContent = 'Falha de conexão. Tente novamente.'; errBox.style.display='';
+  }
+}
+function doLogout(){
+  if(!confirm('Sair da conta? Os dados já sincronizados continuam salvos no servidor.')) return;
+  sessionToken = null; currentUsername = null;
+  localStorage.removeItem('mc_token'); localStorage.removeItem('mc_username');
+  document.getElementById('authScreen').style.display = 'flex';
+}
+async function syncNow(){
+  if(!sessionToken || syncing) return;
+  syncing = true;
+  try{
+    const deletedIds = JSON.parse(localStorage.getItem('mc_v3_deleted') || '[]');
+    const currentHist = loadHist();
+    const resp = await fetch(API_URL + '/sync', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+sessionToken},
+      body: JSON.stringify({ patients: pts, history: currentHist, deletedPatientIds: deletedIds })
+    });
+    if(resp.status === 401){ syncing=false; doLogout(); return; }
+    if(!resp.ok){ syncing=false; return; }
+    const state = await resp.json();
+    pts = state.patients;
+    saveHist(state.history);
+    localStorage.setItem(SK, JSON.stringify(pts));
+    localStorage.removeItem('mc_v3_deleted');
+    badges(); render(curView);
+  }catch(e){ /* offline — os dados locais continuam intactos, tenta de novo depois */ }
+  syncing = false;
+}
+function forceSync(){
+  toast('🔄 Sincronizando…');
+  syncNow();
+}
+
 function savePatient(){
   const name=document.getElementById('fn').value.trim(), bed=document.getElementById('fb').value.trim();
   if(!name||!bed){ toast('⚠️ Nome e leito obrigatórios',true); return; }
@@ -1554,29 +1659,35 @@ function savePatient(){
     pendings:(document.getElementById('fpend').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
     transfer:document.getElementById('ftr').value==='sim',
     fastmedic:document.getElementById('ffm').value.trim(),
-    destino:document.getElementById('fdest').value.trim()
+    destino:document.getElementById('fdest').value.trim(),
+    updatedAt: Date.now()
   };
   if(existing){
     Object.assign(existing, data);
     toast('✏️ Paciente atualizado');
   } else {
-    pts.unshift({id:Date.now(), ...data});
+    pts.unshift({id:String(Date.now()), ...data});
     toast('✓ Paciente salvo');
   }
   save(); badges(); closeAdd();
   render(curView);
+  syncNow();
 }
 
-function confirmClear(){
-  if(confirm('⚠️ Apagar todos os pacientes cadastrados?\n\nEssa ação não pode ser desfeita.')){
-    pts=[]; save(); badges(); render(curView);
-    toast('🗑️ Todos os pacientes foram apagados');
-  }
-}
 
 // ── init ──
+pts.forEach(p=>{ if(!p.updatedAt) p.updatedAt = Date.now(); });
 badges();
 rDash();
+
+if(sessionToken){
+  document.getElementById('authScreen').style.display = 'none';
+  syncNow();
+} else {
+  document.getElementById('authScreen').style.display = 'flex';
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && sessionToken) syncNow(); });
+window.addEventListener('focus', ()=>{ if(sessionToken) syncNow(); });
 
 // ── PWA: service worker ──
 if ('serviceWorker' in navigator) {
