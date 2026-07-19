@@ -1043,6 +1043,7 @@ select.finput { cursor: pointer; }
 </div>
 
 <script>
+const APP_VERSION = '2026-07-19.1';
 // ── utils ──
 const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
@@ -1819,6 +1820,29 @@ if(sessionToken){
 }
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && sessionToken) syncNow(); });
 window.addEventListener('focus', ()=>{ if(sessionToken) syncNow(); });
+
+// ── checagem de versão (iOS costuma "retomar" o app da memória em vez de recarregar,
+// então o SW nunca detecta atualização — checamos o conteúdo real do index.html direto) ──
+let checkingVersion = false;
+async function checkForNewVersion(){
+  if(checkingVersion || document.querySelector('.sheet.open')) return; // não interrompe edição em andamento
+  checkingVersion = true;
+  try{
+    const resp = await fetch('./index.html?v=' + Date.now(), { cache: 'no-store' });
+    if(resp.ok){
+      const text = await resp.text();
+      const m = text.match(/const APP_VERSION = '([^']+)'/);
+      if(m && m[1] !== APP_VERSION){
+        toast('🔄 Atualizando para a nova versão…');
+        setTimeout(()=>window.location.reload(),600);
+      }
+    }
+  }catch(e){ /* offline — verifica de novo na próxima vez */ }
+  checkingVersion = false;
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkForNewVersion(); });
+window.addEventListener('focus', checkForNewVersion);
+checkForNewVersion();
 
 // ── PWA: service worker ──
 if ('serviceWorker' in navigator) {
