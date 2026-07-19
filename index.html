@@ -729,6 +729,18 @@ select.finput { cursor: pointer; }
 .alta-dtval { font-family: var(--mono); font-size: .95rem; font-weight: 700; }
 .alta-dtlbl { font-size: .68rem; font-weight: 600; margin-top: 2px; }
 
+/* ── PASSAGENS DE PLANTÃO ── */
+.pt-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; }
+.pt-card:active { background: var(--card2); }
+.pt-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pt-turno { font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+.pt-turno.dia { background: var(--ydim); color: var(--yellow); }
+.pt-turno.noite { background: var(--bdim); color: var(--blue); }
+.pt-date { font-family: var(--mono); font-size: .78rem; color: var(--t2); }
+.pt-people { font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+.pt-obs { font-size: .78rem; color: var(--t2); white-space: pre-wrap; }
+.tab-badge.p { background: var(--purple); }
+
 /* ── PENDING LIST ── */
 .pend-card {
   background: var(--card);
@@ -801,6 +813,16 @@ select.finput { cursor: pointer; }
     <div id="transf-list"></div>
   </div>
 
+  <!-- PASSAGENS DE PLANTÃO -->
+  <div class="view" id="v-plantao">
+    <div class="section-hd">
+      <div class="section-title">Passagens de Plantão</div>
+      <div class="section-sub" id="plantao-count"></div>
+      <button class="hbtn" style="margin-left:8px;padding:8px 14px;" onclick="openPlantaoAdd()">＋ <span class="hbtn-label">Nova</span></button>
+    </div>
+    <div id="plantao-list"></div>
+  </div>
+
 </div>
 
 <!-- BOTTOM TAB BAR -->
@@ -828,6 +850,11 @@ select.finput { cursor: pointer; }
     <div class="tab-icon">🚑</div>
     <div class="tab-label">Transf.</div>
     <div class="tab-badge c" id="nb-transf">0</div>
+  </button>
+  <button class="tab" id="tab-plantao" onclick="showView('plantao',this)">
+    <div class="tab-icon">📋</div>
+    <div class="tab-label">Plantão</div>
+    <div class="tab-badge p" id="nb-plantao">0</div>
   </button>
 </div>
 
@@ -943,6 +970,36 @@ select.finput { cursor: pointer; }
         <div class="imp-hint">Remove TODOS os pacientes internados do banco compartilhado — afeta a equipe inteira, em qualquer aparelho. Use apenas para resetar o sistema por completo.</div>
         <button class="btn-cancel" style="width:100%;border-color:rgba(239,68,68,.4);color:var(--red);" onclick="resetAllPatients()">🗑️ Excluir todos os pacientes</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- PASSAGEM DE PLANTÃO FORM SHEET -->
+<div class="sheet-overlay" id="plantaoOvl" onclick="closePlantao()"></div>
+<div class="sheet" id="plantaoSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div><div class="sheet-name" id="plantaoTitle">Nova Passagem de Plantão</div><div class="sheet-sub">Registro de troca de plantão</div></div>
+    <button class="sheet-close" onclick="closePlantao()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-grid">
+      <div class="fg-row">
+        <div class="fg"><label class="flabel">Data</label><input class="finput" id="ptData" type="date"></div>
+        <div class="fg"><label class="flabel">Turno</label>
+          <select class="finput" id="ptTurno"><option value="dia">Dia</option><option value="noite">Noite</option></select>
+        </div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label class="flabel">Quem está saindo</label><input class="finput" id="ptSai" placeholder="Nome do plantonista"></div>
+        <div class="fg"><label class="flabel">Quem está assumindo</label><input class="finput" id="ptAssume" placeholder="Nome do plantonista"></div>
+      </div>
+      <div class="fg"><label class="flabel">Observações do plantão</label><textarea class="finput" id="ptObs" style="min-height:120px;" placeholder="Intercorrências, pendências gerais, avisos para o próximo plantão…"></textarea></div>
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closePlantao()">Cancelar</button>
+        <button class="btn-save" id="plantaoSaveBtn" onclick="savePlantao()">✓ Salvar Passagem</button>
+      </div>
+      <button class="btn-cancel" id="plantaoDeleteBtn" style="width:100%;margin-top:10px;border-color:rgba(239,68,68,.4);color:var(--red);display:none;" onclick="deletePlantaoConfirm()">🗑️ Excluir Passagem</button>
     </div>
   </div>
 </div>
@@ -1085,6 +1142,7 @@ function render(v){
   else if(v==='atb') rAtb();
   else if(v==='pend') rPend();
   else if(v==='transf') rTransf();
+  else if(v==='plantao') rPlantao();
 }
 
 // ── badges ──
@@ -1094,6 +1152,7 @@ function badges(){
   document.getElementById('nb-atb').textContent = pts.filter(p=>p.antibiotics.length).length;
   document.getElementById('nb-pend').textContent = pts.filter(p=>p.pendings.length).length;
   document.getElementById('nb-transf').textContent = pts.filter(p=>p.transfer).length;
+  document.getElementById('nb-plantao').textContent = plantoes.length;
   document.getElementById('hOcc').innerHTML = `<div class="dot"></div><strong>${n}</strong>/<span>100</span> leitos`;
 }
 
@@ -1283,6 +1342,76 @@ function rTransf(){
         <div style="margin-top:6px;font-size:.72rem;color:var(--t3);">${p.pathologies.join(' · ')}</div>
       </div>
     </div>`).join(''):'<div class="empty"><div class="ei">🚑</div><p>Nenhuma transferência ativa.</p></div>';
+}
+
+// ── passagens de plantão (armazenamento local no aparelho, não sincronizado entre dispositivos) ──
+const PK = 'mc_plantoes_v1';
+function loadPlantoes(){ try{ const r=localStorage.getItem(PK); if(r!==null){ const p=JSON.parse(r); if(Array.isArray(p)) return p; } }catch(e){} return null; }
+function savePlantoes(){ try{ localStorage.setItem(PK, JSON.stringify(plantoes)); }catch(e){ toast('⚠️ Erro ao salvar passagem',true); } }
+let plantoes = loadPlantoes() || [];
+let editingPlantaoId = null;
+
+function rPlantao(){
+  const list=[...plantoes].sort((a,b)=> (b.data+b.turno).localeCompare(a.data+a.turno) || b.createdAt-a.createdAt);
+  document.getElementById('plantao-count').textContent=`${list.length} registro${list.length!==1?'s':''}`;
+  document.getElementById('plantao-list').innerHTML=list.length?list.map(pt=>`
+    <div class="pt-card" onclick="openPlantaoEdit(${pt.id})">
+      <div class="pt-hd">
+        <div class="pt-turno ${pt.turno}">${pt.turno==='dia'?'☀️ Dia':'🌙 Noite'}</div>
+        <div class="pt-date">${fmtD(pt.data)}</div>
+      </div>
+      <div class="pt-people">${pt.saiDe||'—'} → ${pt.assume||'—'}</div>
+      ${pt.observacoes?`<div class="pt-obs">${pt.observacoes.length>140?pt.observacoes.slice(0,140)+'…':pt.observacoes}</div>`:''}
+    </div>`).join(''):'<div class="empty"><div class="ei">📋</div><p>Nenhuma passagem registrada.</p></div>';
+}
+
+function openPlantaoAdd(){
+  editingPlantaoId = null;
+  document.getElementById('plantaoTitle').textContent='Nova Passagem de Plantão';
+  document.getElementById('plantaoSaveBtn').textContent='✓ Salvar Passagem';
+  document.getElementById('plantaoDeleteBtn').style.display='none';
+  document.getElementById('ptData').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ptTurno').value='dia';
+  document.getElementById('ptSai').value=''; document.getElementById('ptAssume').value=''; document.getElementById('ptObs').value='';
+  document.getElementById('plantaoOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('plantaoSheet').classList.add('open'));
+}
+function openPlantaoEdit(id){
+  const pt=plantoes.find(x=>x.id===id); if(!pt) return;
+  editingPlantaoId = id;
+  document.getElementById('plantaoTitle').textContent='Editar Passagem de Plantão';
+  document.getElementById('plantaoSaveBtn').textContent='✓ Salvar Alterações';
+  document.getElementById('plantaoDeleteBtn').style.display='block';
+  document.getElementById('ptData').value=pt.data;
+  document.getElementById('ptTurno').value=pt.turno;
+  document.getElementById('ptSai').value=pt.saiDe;
+  document.getElementById('ptAssume').value=pt.assume;
+  document.getElementById('ptObs').value=pt.observacoes;
+  document.getElementById('plantaoOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('plantaoSheet').classList.add('open'));
+}
+function closePlantao(){ editingPlantaoId=null; document.getElementById('plantaoSheet').classList.remove('open'); setTimeout(()=>document.getElementById('plantaoOvl').classList.remove('show'),320); }
+function savePlantao(){
+  const data=document.getElementById('ptData').value || new Date().toISOString().split('T')[0];
+  const turno=document.getElementById('ptTurno').value;
+  const saiDe=document.getElementById('ptSai').value.trim();
+  const assume=document.getElementById('ptAssume').value.trim();
+  const observacoes=document.getElementById('ptObs').value.trim();
+  if(editingPlantaoId){
+    const pt=plantoes.find(x=>x.id===editingPlantaoId);
+    Object.assign(pt,{data,turno,saiDe,assume,observacoes});
+    toast('💾 Passagem atualizada');
+  } else {
+    plantoes.unshift({id:Date.now(),data,turno,saiDe,assume,observacoes,createdAt:Date.now()});
+    toast('💾 Passagem registrada');
+  }
+  savePlantoes(); badges(); closePlantao(); render(curView);
+}
+function deletePlantaoConfirm(){
+  if(!editingPlantaoId) return;
+  if(!confirm('Excluir esta passagem de plantão?')) return;
+  plantoes = plantoes.filter(x=>x.id!==editingPlantaoId);
+  savePlantoes(); badges(); closePlantao(); render(curView);
 }
 
 // ── detail sheet ──
@@ -1676,7 +1805,9 @@ function savePatient(){
 
 
 // ── init ──
-pts.forEach(p=>{ if(!p.updatedAt) p.updatedAt = Date.now(); });
+let _stampedMissingUpdatedAt = false;
+pts.forEach(p=>{ if(!p.updatedAt){ p.updatedAt = Date.now(); _stampedMissingUpdatedAt = true; } });
+if(_stampedMissingUpdatedAt) save();
 badges();
 rDash();
 

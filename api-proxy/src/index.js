@@ -128,16 +128,22 @@ export default {
       const body = await request.json().catch(() => null);
       if (!body) return json({ error: 'json inválido' }, 400);
 
+      for (const p of body.deletedPatientIds || []) {
+        const delId = String(p);
+        await env.DB.prepare('DELETE FROM patients WHERE id = ?').bind(delId).run();
+        await env.DB.prepare('INSERT INTO tombstones (id, deleted_at) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET deleted_at=excluded.deleted_at')
+          .bind(delId, Date.now()).run();
+      }
       for (const p of body.patients || []) {
-        const existing = await env.DB.prepare('SELECT updated_at FROM patients WHERE id = ?').bind(p.id).first();
+        const idStr = String(p.id);
+        const tomb = await env.DB.prepare('SELECT id FROM tombstones WHERE id = ?').bind(idStr).first();
+        if (tomb) continue; // id excluído permanentemente — nunca ressuscitar, mesmo com updatedAt mais novo
+        const existing = await env.DB.prepare('SELECT updated_at FROM patients WHERE id = ?').bind(idStr).first();
         if (!existing || p.updatedAt > existing.updated_at) {
           const { id, updatedAt, ...rest } = p;
           await env.DB.prepare('INSERT INTO patients (id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at')
-            .bind(id, JSON.stringify(rest), updatedAt).run();
+            .bind(idStr, JSON.stringify(rest), updatedAt).run();
         }
-      }
-      for (const p of body.deletedPatientIds || []) {
-        await env.DB.prepare('DELETE FROM patients WHERE id = ?').bind(p).run();
       }
       for (const h of body.history || []) {
         const existing = await env.DB.prepare('SELECT updated_at FROM history WHERE id = ?').bind(h.id).first();
