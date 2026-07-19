@@ -493,6 +493,7 @@ body {
 .disch-btn.alta { color: var(--green); border-color: rgba(16,185,129,.3); }
 .disch-btn.transf { color: var(--cyan); border-color: rgba(6,182,212,.3); }
 .disch-btn.obito { color: var(--t2); border-color: var(--border2); }
+.disch-btn.excluir { color: var(--red); border-color: rgba(239,68,68,.3); }
 
 .meds-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .med-row {
@@ -687,6 +688,7 @@ select.finput { cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
 }
+.danger-zone { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
 .auth-box { width: 100%; max-width: 360px; }
 .auth-error { color: var(--red); font-size: .8rem; background: var(--rdim); border: 1px solid rgba(239,68,68,.3); border-radius: 10px; padding: 10px 12px; }
 .auth-info { color: var(--t2); font-size: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
@@ -936,6 +938,11 @@ select.finput { cursor: pointer; }
           <button class="btn-save" onclick="runImport()">✓ Importar Pacientes</button>
         </div>
       </div>
+      <div class="danger-zone">
+        <div class="ssec-title" style="color:var(--red);">Zona de risco</div>
+        <div class="imp-hint">Remove TODOS os pacientes internados do banco compartilhado — afeta a equipe inteira, em qualquer aparelho. Use apenas para resetar o sistema por completo.</div>
+        <button class="btn-cancel" style="width:100%;border-color:rgba(239,68,68,.4);color:var(--red);" onclick="resetAllPatients()">🗑️ Excluir todos os pacientes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1095,7 +1102,7 @@ function tileHTML(p){
   const d=dAgo(p.admitDate);
   const dc=d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)';
   const diag=p.pathologies[0]||'Sem diagnóstico';
-  return `<div class="ptile${p.transfer?' transf':''}" onclick="openDetail(${p.id})" title="${p.name}">
+  return `<div class="ptile${p.transfer?' transf':''}" onclick="openDetail('${p.id}')" title="${p.name}">
     <div class="ptile-badges">
       ${p.antibiotics.length?`<div class="ptile-badge atb" title="Em antibiótico">💊</div>`:''}
       ${p.transfer?`<div class="ptile-badge transf" title="Aguardando transferência">🚑</div>`:''}
@@ -1150,7 +1157,7 @@ function rAtb(){
   document.getElementById('atb-count').textContent=`${w.length} paciente${w.length!==1?'s':''}`;
   const colors=['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ec4899'];
   document.getElementById('atb-list').innerHTML=w.length?w.map(p=>`
-    <div class="atb-section" onclick="openDetail(${p.id})">
+    <div class="atb-section" onclick="openDetail('${p.id}')">
       <div class="atb-hd">
         <div class="bed-num">${p.bed}</div>
         <div class="atb-pname">${p.name}</div>
@@ -1177,7 +1184,7 @@ function rPend(){
       </div>
       <div class="pend-list" style="margin-bottom:0">${p.pendings.map((pend,i)=>`
         <div class="pend-row">
-          <div class="pend-chk" onclick="resolvePend(${p.id},${i})">✓</div>
+          <div class="pend-chk" onclick="resolvePend('${p.id}',${i})">✓</div>
           <span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span>
         </div>`).join('')}
       </div>
@@ -1216,6 +1223,31 @@ function dischargePatient(id, outcome){
   toast(`${o.icon} ${p.name} — ${o.label} registrada`);
   syncNow();
 }
+function deletePatient(id){
+  const p=pts.find(x=>x.id===id); if(!p) return;
+  if(!confirm(`Excluir o registro de ${p.name} (leito ${p.bed})?\n\nUse isso apenas para corrigir um cadastro feito por engano — não é um registro de alta/óbito. Essa ação não pode ser desfeita.`)) return;
+  pts=pts.filter(x=>x.id!==id);
+  const deleted = JSON.parse(localStorage.getItem('mc_v3_deleted')||'[]');
+  deleted.push(id);
+  localStorage.setItem('mc_v3_deleted', JSON.stringify(deleted));
+  save(); badges(); closeDetail();
+  render(curView);
+  toast(`🗑️ ${p.name} — registro excluído`);
+  syncNow();
+}
+function resetAllPatients(){
+  if(pts.length===0){ toast('Não há pacientes para excluir.'); return; }
+  if(!confirm(`Isso vai excluir TODOS os ${pts.length} pacientes internados do banco compartilhado — afeta a equipe inteira, não só este aparelho.\n\nUse apenas para resetar o sistema por completo. Continuar?`)) return;
+  const typed = prompt('Pra confirmar, digite EXCLUIR TUDO (em maiúsculas):');
+  if(typed !== 'EXCLUIR TUDO'){ toast('Cancelado — texto não confere.',true); return; }
+  const deleted = JSON.parse(localStorage.getItem('mc_v3_deleted')||'[]');
+  pts.forEach(p=>deleted.push(p.id));
+  localStorage.setItem('mc_v3_deleted', JSON.stringify(deleted));
+  pts=[];
+  save(); badges(); render(curView); closeImport();
+  toast('🗑️ Todos os pacientes foram excluídos');
+  syncNow();
+}
 
 async function generateSummary(id){
   const p=pts.find(x=>x.id===id); if(!p) return;
@@ -1236,7 +1268,7 @@ function rTransf(){
   const w=pts.filter(p=>p.transfer);
   document.getElementById('transf-count').textContent=`${w.length} aguardando`;
   document.getElementById('transf-list').innerHTML=w.length?w.map(p=>`
-    <div class="tcard" onclick="openDetail(${p.id})">
+    <div class="tcard" onclick="openDetail('${p.id}')">
       <div class="tcard-top">
         <div class="tpulse"></div>
         <div class="tcard-name">${p.name}</div>
@@ -1279,7 +1311,7 @@ function openDetail(id){
   const pendSec=document.getElementById('dPendSec');
   if(p.pendings.length){
     pendSec.style.display='';
-    document.getElementById('dPend').innerHTML=p.pendings.map((pend,i)=>`<div class="pend-row"><div class="pend-chk" onclick="resolvePend(${p.id},${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`).join('');
+    document.getElementById('dPend').innerHTML=p.pendings.map((pend,i)=>`<div class="pend-row"><div class="pend-chk" onclick="resolvePend('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`).join('');
   } else pendSec.style.display='none';
   const altaSec=document.getElementById('dAltaSec');
   if(p.altaDate){
@@ -1303,9 +1335,10 @@ function openDetail(id){
     document.getElementById('dAih').innerHTML = `<div class="aih-empty">Sem estimativa cadastrada para este diagnóstico.</div>`;
   }
   document.getElementById('dDischarge').innerHTML=`
-    <button class="disch-btn alta" onclick="dischargePatient(${p.id},'alta')"><span class="di">✅</span>Alta</button>
-    <button class="disch-btn transf" onclick="dischargePatient(${p.id},'transferencia')"><span class="di">🚑</span>Transferência</button>
-    <button class="disch-btn obito" onclick="dischargePatient(${p.id},'obito')"><span class="di">⚫</span>Óbito</button>`;
+    <button class="disch-btn alta" onclick="dischargePatient('${p.id}','alta')"><span class="di">✅</span>Alta</button>
+    <button class="disch-btn transf" onclick="dischargePatient('${p.id}','transferencia')"><span class="di">🚑</span>Transferência</button>
+    <button class="disch-btn obito" onclick="dischargePatient('${p.id}','obito')"><span class="di">⚫</span>Óbito</button>
+    <button class="disch-btn excluir" onclick="deletePatient('${p.id}')"><span class="di">🗑️</span>Excluir</button>`;
   document.getElementById('detOvl').classList.add('show');
   requestAnimationFrame(()=>document.getElementById('detSheet').classList.add('open'));
 }
