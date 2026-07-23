@@ -521,6 +521,14 @@ body {
   display: flex; align-items: center; gap: 10px;
   font-size: .8rem; color: var(--yellow);
 }
+.exam-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+}
+.exam-item-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.exam-item-date { font-size: .72rem; font-weight: 700; color: var(--t2); }
+.exam-item-del { cursor: pointer; color: var(--red); font-size: .78rem; -webkit-appearance: none; background: none; border: none; }
+.exam-item-text { font-size: .78rem; color: var(--text); white-space: pre-wrap; }
 .pend-chk {
   width: 22px; height: 22px;
   border: 2px solid var(--yellow);
@@ -888,6 +896,12 @@ select.finput { cursor: pointer; }
     <div id="dPendSec"><div class="ssec-title">Pendências</div><div class="pend-list" id="dPend"></div></div>
     <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
     <div id="dTransfSec"><div class="ssec-title">Solicitação à Central</div><div class="transf-box" id="dTransf"></div></div>
+    <div id="dExamSec">
+      <div class="ssec-title">Exames Anexados</div>
+      <button class="btn-cancel" style="width:100%;margin-bottom:10px;" id="dExamBtn">📎 Anexar Exame (foto)</button>
+      <input type="file" accept="image/*" capture="environment" id="dExamInput" style="display:none;">
+      <div id="dExamList"></div>
+    </div>
     <div class="ssec-title">Estimativa SIGTAP (AIH)</div><div class="aih-box" id="dAih"></div>
     <div class="ssec-title">Resumo Clínico (IA)</div>
     <button class="btn-cancel" style="width:100%;margin-bottom:10px;" id="dSummaryBtn">📝 Gerar Resumo</button>
@@ -1072,7 +1086,7 @@ select.finput { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = '2026-07-19.1';
+const APP_VERSION = '2026-07-23.1';
 // ── utils ──
 const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
@@ -1122,6 +1136,43 @@ async function callGemini(promptText){
   }
   const data = await resp.json();
   return (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) || '';
+}
+async function callGeminiVision(promptText, base64Data, mimeType){
+  const resp = await fetch(AI_PROXY_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-App-Secret':AI_APP_SECRET},
+    body: JSON.stringify({ model:AI_MODEL, payload:{ contents:[{parts:[{text:promptText},{inlineData:{mimeType,data:base64Data}}]}] } })
+  });
+  if(!resp.ok){
+    let msg = 'HTTP '+resp.status;
+    try{ const err=await resp.json(); msg = err.error?.message || err.error || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const data = await resp.json();
+  return (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) || '';
+}
+function resizeImageToBase64(file){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
+    reader.onload = () => { img.src = reader.result; };
+    img.onerror = () => reject(new Error('Falha ao carregar a imagem'));
+    img.onload = () => {
+      const maxSide = 1600;
+      let { width, height } = img;
+      if(width > maxSide || height > maxSide){
+        const scale = maxSide / Math.max(width, height);
+        width = Math.round(width * scale); height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+    };
+    reader.readAsDataURL(file);
+  });
 }
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(pts)); toast('💾 Dados salvos'); }catch(e){ toast('⚠️ Erro ao salvar',true); } }
 function load(){ try{ const r=localStorage.getItem(SK); if(r!==null){ const p=JSON.parse(r); if(Array.isArray(p)) return p; } }catch(e){} return null; }
@@ -1311,6 +1362,48 @@ function toggleRequisito(pid,idx){
   syncNow();
 }
 
+// ── anexar exame por foto (transcrição via IA, a imagem não é armazenada) ──
+let examAttachPatientId = null;
+function triggerAttachExam(pid){
+  examAttachPatientId = pid;
+  document.getElementById('dExamInput').value = '';
+  document.getElementById('dExamInput').click();
+}
+async function attachExam(file){
+  const pid = examAttachPatientId;
+  const p = pts.find(x=>x.id===pid); if(!p||!file) return;
+  const btn = document.getElementById('dExamBtn');
+  const originalLabel = btn.textContent;
+  btn.textContent = '⏳ Transcrevendo…'; btn.disabled = true;
+  try{
+    const { base64, mimeType } = await resizeImageToBase64(file);
+    const prompt = 'Transcreva fielmente o texto deste exame/laudo médico, mantendo valores, unidades e datas exatamente como aparecem. Não interprete nem resuma, apenas transcreva o texto visível.';
+    const text = await callGeminiVision(prompt, base64, mimeType);
+    if(!p.examAttachments) p.examAttachments = [];
+    p.examAttachments.unshift({ date: new Date().toISOString().split('T')[0], text: text||'(sem texto reconhecido)', addedAt: Date.now() });
+    p.updatedAt = Date.now();
+    save(); badges();
+    if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
+    toast('📎 Exame transcrito e anexado');
+    syncNow();
+  }catch(e){
+    toast('⚠️ Erro ao transcrever exame: '+e.message, true);
+  } finally {
+    btn.textContent = originalLabel; btn.disabled = false;
+  }
+}
+function removeExamAttachment(pid, idx){
+  const p=pts.find(x=>x.id===pid); if(!p||!p.examAttachments) return;
+  if(!confirm('Remover esta transcrição de exame?')) return;
+  p.examAttachments.splice(idx,1); p.updatedAt=Date.now(); save(); badges();
+  if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
+  syncNow();
+}
+document.getElementById('dExamInput').addEventListener('change', e=>{
+  const file = e.target.files && e.target.files[0];
+  if(file) attachExam(file);
+});
+
 // ── saída do paciente (alta / transferência / óbito) ──
 const HK = 'mc_v3_hist';
 function loadHist(){ try{ const r=localStorage.getItem(HK); if(r!==null){ const h=JSON.parse(r); if(Array.isArray(h)) return h; } }catch(e){} return []; }
@@ -1380,7 +1473,8 @@ async function generateSummary(id){
   const box=document.getElementById('dSummary');
   box.style.display=''; box.innerHTML='<div class="aih-empty">🤖 Gerando resumo…</div>';
   try{
-    const info = `Nome: ${p.name}; Idade: ${p.age}; Leito: ${p.bed}; Ala: ${p.ward}; Internado desde ${fmtD(p.admitDate)} (${dAgo(p.admitDate)} dias); Patologias: ${p.pathologies.join(', ')||'—'}; Medicações: ${p.medications.join('; ')||'—'}; Antibióticos: ${p.antibiotics.map(a=>a.name+' (D'+dAgo(a.startDate)+')').join('; ')||'nenhum'}; Pendências: ${p.pendings.join('; ')||'nenhuma'}; Previsão de alta: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}; Central de Leitos: ${solicitacaoDesc(p.solicitacao)}.`;
+    const examsInfo = (p.examAttachments&&p.examAttachments.length) ? p.examAttachments.map(ex=>`[${fmtD(ex.date)}] ${ex.text}`).join(' | ') : 'nenhum exame anexado';
+    const info = `Nome: ${p.name}; Idade: ${p.age}; Leito: ${p.bed}; Ala: ${p.ward}; Internado desde ${fmtD(p.admitDate)} (${dAgo(p.admitDate)} dias); Patologias: ${p.pathologies.join(', ')||'—'}; Medicações: ${p.medications.join('; ')||'—'}; Antibióticos: ${p.antibiotics.map(a=>a.name+' (D'+dAgo(a.startDate)+')').join('; ')||'nenhum'}; Pendências: ${p.pendings.join('; ')||'nenhuma'}; Previsão de alta: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}; Central de Leitos: ${solicitacaoDesc(p.solicitacao)}; Exames anexados: ${examsInfo}.`;
     const prompt = `Gere um resumo clínico breve (3 a 5 frases, em português, tom objetivo de passagem de plantão hospitalar) com base SOMENTE nestes dados, sem inventar informação adicional: ${info}`;
     const text = await callGemini(prompt);
     box.innerHTML = `<div class="aih-proc" style="white-space:pre-wrap;">${(text||'(sem resposta)').replace(/</g,'&lt;')}</div>`;
@@ -1572,6 +1666,14 @@ function renderDetail(p, historical){
       :`<div class="pend-row"><div class="pend-chk${r.feito?' done':''}" onclick="toggleRequisito('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;${r.feito?'text-decoration:line-through;color:var(--t3);':''}">${r.item}</span></div>`).join('')}</div>`:'';
     document.getElementById('dTransf').innerHTML=`<div class="transf-title">${sol.tipo==='exame'?'🔬 Aguardando Exame/Avaliação':'🚑 Aguardando Central de Leitos'}</div><div class="fm-num">${sol.fastmedic||'—'}</div><div class="transf-info">${sol.tipo==='exame'?`<strong>Exame/avaliação:</strong> ${sol.examTipo||'—'}<br>`:''}<strong>Destino:</strong> ${sol.destino||'—'}<br><strong>Aguardando há:</strong> <span style="color:${WAIT_COLOR[wt.level]};font-weight:700;">${wt.label}</span></div>${reqHTML}`;
   } else trSec.style.display='none';
+  const examAttachments = p.examAttachments||[];
+  document.getElementById('dExamBtn').style.display = historical?'none':'';
+  document.getElementById('dExamBtn').onclick = historical?null:()=>triggerAttachExam(p.id);
+  document.getElementById('dExamList').innerHTML = examAttachments.length ? examAttachments.map((ex,i)=>`
+    <div class="exam-item">
+      <div class="exam-item-hd"><div class="exam-item-date">📎 ${fmtD(ex.date)}</div>${historical?'':`<button class="exam-item-del" onclick="removeExamAttachment('${p.id}',${i})">🗑️ Remover</button>`}</div>
+      <div class="exam-item-text">${ex.text.replace(/</g,'&lt;')}</div>
+    </div>`).join('') : '<div style="color:var(--t3);font-size:.8rem;padding:4px 0;">Nenhum exame anexado.</div>';
   const aih = estimateAIH(p);
   if(aih){
     const diasInt = dAgo(p.admitDate);
@@ -1770,7 +1872,7 @@ function runImport(){
       ward: wardIdx>=0 ? ((r[wardIdx]||'').trim()||'Clínica Médica') : 'Clínica Médica',
       admitDate: (admitIdx>=0 && parseImpDate(r[admitIdx])) || todayStr,
       altaDate:null, pathologies: (diag && diag!=='-') ? [diag] : [], medications:[], antibiotics:[], pendings:[],
-      solicitacao:null, updatedAt: Date.now()
+      solicitacao:null, examAttachments:[], updatedAt: Date.now()
     });
   });
   if(!imported.length){ toast('⚠️ Nenhum paciente válido encontrado',true); return; }
@@ -1800,7 +1902,8 @@ function buildRosterContext(){
   return pts.map(p=>{
     const d=dAgo(p.admitDate);
     const atbInfo = p.antibiotics.length ? p.antibiotics.map(a=>`${a.name} (D${dAgo(a.startDate)})`).join('; ') : 'nenhum';
-    return `Leito ${p.bed} — ${p.name}, ${p.age}a, ${p.ward}, internado há ${d}d. Patologias: ${p.pathologies.join(', ')||'—'}. ATB: ${atbInfo}. Pendências: ${p.pendings.join('; ')||'nenhuma'}. Alta prevista: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}. Central de Leitos: ${solicitacaoDesc(p.solicitacao)}.`;
+    const examsInfo = (p.examAttachments&&p.examAttachments.length) ? p.examAttachments.map(ex=>`[${fmtD(ex.date)}] ${ex.text}`).join(' | ') : 'nenhum';
+    return `Leito ${p.bed} — ${p.name}, ${p.age}a, ${p.ward}, internado há ${d}d. Patologias: ${p.pathologies.join(', ')||'—'}. ATB: ${atbInfo}. Pendências: ${p.pendings.join('; ')||'nenhuma'}. Alta prevista: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}. Central de Leitos: ${solicitacaoDesc(p.solicitacao)}. Exames anexados: ${examsInfo}.`;
   }).join('\n');
 }
 function appendChatMsg(role, text, loading=false){
@@ -1958,7 +2061,7 @@ function savePatient(){
     Object.assign(existing, data);
     toast('✏️ Paciente atualizado');
   } else {
-    pts.unshift({id:String(Date.now()), ...data});
+    pts.unshift({id:String(Date.now()), ...data, examAttachments:[]});
     toast('✓ Paciente salvo');
   }
   save(); badges(); closeAdd();
