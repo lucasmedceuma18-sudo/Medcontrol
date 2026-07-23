@@ -391,7 +391,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 12px;
+  cursor: pointer;
 }
+.dcard:active { background: var(--card2); }
 .dcard-label { font-size: .68rem; color: var(--t2); margin-bottom: 6px; }
 .dcard-val {
   font-size: 2rem; font-weight: 800;
@@ -473,6 +475,11 @@ body {
 }
 .sstat-label { font-size: .62rem; color: var(--t3); margin-bottom: 4px; }
 .sstat-val { font-size: 1.15rem; font-weight: 800; font-family: var(--mono); }
+
+.stats-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 14px; }
+.stats-legend-item { display: flex; align-items: center; gap: 6px; font-size: .74rem; color: var(--t2); }
+.stats-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.stats-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px 4px; background: var(--surface); }
 
 .ssec-title {
   font-size: .62rem; font-weight: 700;
@@ -1047,6 +1054,24 @@ select.finput { cursor: pointer; }
   </div>
 </div>
 
+<!-- ESTATÍSTICAS -->
+<div class="sheet-overlay" id="statsOvl" onclick="closeStats()"></div>
+<div class="sheet" id="statsSheet" style="max-height:88vh;">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-header-row">
+      <div><div class="sheet-name">📊 Internações x Saídas</div><div class="sheet-sub">Últimos 12 meses</div></div>
+      <button class="sheet-close" onclick="closeStats()">✕</button>
+    </div>
+  </div>
+  <div class="sheet-body">
+    <div class="stats-legend" id="statsLegend"></div>
+    <div class="stats-chart-wrap"><div id="statsChart"></div></div>
+    <div class="ssec-title">Totais no período</div>
+    <div class="sstat-row" id="statsTotals"></div>
+  </div>
+</div>
+
 <!-- CHAT IA -->
 <button class="ai-fab" onclick="openChat()" title="Assistente Passagem de Plantão">🤖</button>
 <div class="sheet-overlay" id="chatOvl" onclick="closeChat()"></div>
@@ -1086,7 +1111,7 @@ select.finput { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = '2026-07-23.2';
+const APP_VERSION = '2026-07-23.3';
 // ── utils ──
 const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
@@ -1288,23 +1313,85 @@ function rDash(){
     + hist.filter(h=>h.outcome!=='exame_concluido'&&h.admitDate&&h.admitDate.startsWith(mesAtual)).length;
   const saidasMes=hist.filter(h=>h.outcome!=='exame_concluido'&&h.outcomeDate&&h.outcomeDate.startsWith(mesAtual)).length;
   document.getElementById('dgrid').innerHTML=`
-    <div class="dcard"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
-    <div class="dcard"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
-    <div class="dcard"><div class="dcard-label">Em Antibióticos</div><div class="dcard-val" style="color:var(--red)">${atb}</div><div class="dcard-sub">em ATB ativo</div></div>
-    <div class="dcard"><div class="dcard-label">Aguardando Central</div><div class="dcard-val" style="color:var(--cyan)">${transf}</div><div class="dcard-sub">transferência/exame</div></div>
-    <div class="dcard"><div class="dcard-label">Pendências</div><div class="dcard-val" style="color:var(--yellow)">${pend}</div><div class="dcard-sub">pacientes c/ pendências</div></div>
-    <div class="dcard"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
-    <div class="dcard"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
-    <div class="dcard"><div class="dcard-label">Sem Prev. Alta</div><div class="dcard-val" style="color:var(--red)">${noAlta}</div><div class="dcard-sub">indefinidos</div></div>
-    <div class="dcard"><div class="dcard-label">Altas (total)</div><div class="dcard-val" style="color:var(--green)">${totalAltas}</div><div class="dcard-sub">${totalSaidas} saídas no total</div></div>
-    <div class="dcard"><div class="dcard-label">Transferências (saída)</div><div class="dcard-val" style="color:var(--cyan)">${totalTransfSaida}</div><div class="dcard-sub">pacientes transferidos</div></div>
-    <div class="dcard"><div class="dcard-label">Óbitos</div><div class="dcard-val" style="color:var(--t2)">${totalObitos}</div><div class="dcard-sub">registrados</div></div>
-    <div class="dcard"><div class="dcard-label">Internações no Mês</div><div class="dcard-val" style="color:var(--blue)">${internacoesMes}</div><div class="dcard-sub">${mesAtual.split('-').reverse().join('/')}</div></div>
-    <div class="dcard"><div class="dcard-label">Saídas no Mês</div><div class="dcard-val" style="color:var(--yellow)">${saidasMes}</div><div class="dcard-sub">alta + transferência + óbito</div></div>
-    <div class="dcard"><div class="dcard-label">Receita Estimada (SIGTAP)</div><div class="dcard-val" style="color:var(--green);font-size:1.5rem">R$ ${aihTotal.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="dcard-sub">${aihCount} de ${occ} c/ estimativa</div></div>
-    <div class="dcard"><div class="dcard-label">Acima da Permanência SIGTAP</div><div class="dcard-val" style="color:var(--yellow)">${aihExcedido}</div><div class="dcard-sub">risco de glosa</div></div>`;
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
+    <div class="dcard" onclick="showView('atb')"><div class="dcard-label">Em Antibióticos</div><div class="dcard-val" style="color:var(--red)">${atb}</div><div class="dcard-sub">em ATB ativo</div></div>
+    <div class="dcard" onclick="showView('transf')"><div class="dcard-label">Aguardando Central</div><div class="dcard-val" style="color:var(--cyan)">${transf}</div><div class="dcard-sub">transferência/exame</div></div>
+    <div class="dcard" onclick="showView('pend')"><div class="dcard-label">Pendências</div><div class="dcard-val" style="color:var(--yellow)">${pend}</div><div class="dcard-sub">pacientes c/ pendências</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Sem Prev. Alta</div><div class="dcard-val" style="color:var(--red)">${noAlta}</div><div class="dcard-sub">indefinidos</div></div>
+    <div class="dcard" onclick="openStats()"><div class="dcard-label">Altas (total)</div><div class="dcard-val" style="color:var(--green)">${totalAltas}</div><div class="dcard-sub">${totalSaidas} saídas no total</div></div>
+    <div class="dcard" onclick="openStats()"><div class="dcard-label">Transferências (saída)</div><div class="dcard-val" style="color:var(--cyan)">${totalTransfSaida}</div><div class="dcard-sub">pacientes transferidos</div></div>
+    <div class="dcard" onclick="openStats()"><div class="dcard-label">Óbitos</div><div class="dcard-val" style="color:var(--t2)">${totalObitos}</div><div class="dcard-sub">registrados</div></div>
+    <div class="dcard" onclick="openStats()"><div class="dcard-label">Internações no Mês</div><div class="dcard-val" style="color:var(--blue)">${internacoesMes}</div><div class="dcard-sub">${mesAtual.split('-').reverse().join('/')}</div></div>
+    <div class="dcard" onclick="openStats()"><div class="dcard-label">Saídas no Mês</div><div class="dcard-val" style="color:var(--yellow)">${saidasMes}</div><div class="dcard-sub">alta + transferência + óbito</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Receita Estimada (SIGTAP)</div><div class="dcard-val" style="color:var(--green);font-size:1.5rem">R$ ${aihTotal.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="dcard-sub">${aihCount} de ${occ} c/ estimativa</div></div>
+    <div class="dcard" onclick="showView('pac')"><div class="dcard-label">Acima da Permanência SIGTAP</div><div class="dcard-val" style="color:var(--yellow)">${aihExcedido}</div><div class="dcard-sub">risco de glosa</div></div>`;
   document.getElementById('dash-recentes').innerHTML = pts.slice(0,5).map(tileHTML).join('');
   badges();
+}
+
+// ── estatísticas (internações x saídas por mês) ──
+const STATS_SERIES = [
+  { key:'internacoes', label:'Internações', color:'#3b82f6' },
+  { key:'altas', label:'Altas', color:'#10b981' },
+  { key:'transferencias', label:'Transferências', color:'#06b6d4' },
+  { key:'obitos', label:'Óbitos', color:'#9ca3af' },
+];
+function computeMonthlyStats(nMonths){
+  const hist = loadHist();
+  const months = [];
+  const now = new Date();
+  for(let i=nMonths-1; i>=0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  return months.map(m=>{
+    const internacoes = pts.filter(p=>p.admitDate&&p.admitDate.startsWith(m)).length
+      + hist.filter(h=>h.outcome!=='exame_concluido'&&h.admitDate&&h.admitDate.startsWith(m)).length;
+    const altas = hist.filter(h=>h.outcome==='alta'&&h.outcomeDate&&h.outcomeDate.startsWith(m)).length;
+    const transferencias = hist.filter(h=>h.outcome==='transferencia'&&h.outcomeDate&&h.outcomeDate.startsWith(m)).length;
+    const obitos = hist.filter(h=>h.outcome==='obito'&&h.outcomeDate&&h.outcomeDate.startsWith(m)).length;
+    return { month:m, internacoes, altas, transferencias, obitos };
+  });
+}
+function renderStatsChart(){
+  const data = computeMonthlyStats(12);
+  const maxVal = Math.max(1, ...data.flatMap(d=>STATS_SERIES.map(s=>d[s.key])));
+  const barW=10, barGap=2, groupGap=18, chartH=140, labelH=30;
+  const groupW = STATS_SERIES.length*(barW+barGap) + groupGap;
+  const svgW = groupW*data.length + groupGap;
+  const bars = data.map((d,gi)=>{
+    const gx = groupGap/2 + gi*groupW;
+    const barsHtml = STATS_SERIES.map((s,si)=>{
+      const val = d[s.key];
+      const h = Math.round((val/maxVal)*chartH);
+      const x = gx + si*(barW+barGap);
+      const y = chartH - h;
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${s.color}" rx="2"></rect>
+        ${val>0?`<text x="${x+barW/2}" y="${y-3}" font-size="8" fill="var(--t3)" text-anchor="middle">${val}</text>`:''}`;
+    }).join('');
+    const [yy,mm] = d.month.split('-');
+    const label = `${mm}/${yy.slice(2)}`;
+    return `${barsHtml}<text x="${gx+groupW/2-groupGap/2}" y="${chartH+16}" font-size="9" fill="var(--t2)" text-anchor="middle">${label}</text>`;
+  }).join('');
+  return `<svg width="${svgW}" height="${chartH+labelH}" viewBox="0 0 ${svgW} ${chartH+labelH}">${bars}</svg>`;
+}
+function openStats(){
+  document.getElementById('statsLegend').innerHTML = STATS_SERIES.map(s=>`
+    <div class="stats-legend-item"><div class="stats-legend-dot" style="background:${s.color}"></div>${s.label}</div>`).join('');
+  document.getElementById('statsChart').innerHTML = renderStatsChart();
+  const data = computeMonthlyStats(12);
+  const totals = STATS_SERIES.map(s=>({ ...s, total: data.reduce((sum,d)=>sum+d[s.key],0) }));
+  document.getElementById('statsTotals').innerHTML = totals.map(t=>`
+    <div class="sstat"><div class="sstat-label">${t.label}</div><div class="sstat-val" style="color:${t.color}">${t.total}</div></div>`).join('');
+  document.getElementById('statsOvl').classList.add('show');
+  requestAnimationFrame(()=>document.getElementById('statsSheet').classList.add('open'));
+}
+function closeStats(){
+  document.getElementById('statsSheet').classList.remove('open');
+  setTimeout(()=>document.getElementById('statsOvl').classList.remove('show'),320);
 }
 
 // ── pacientes ──
