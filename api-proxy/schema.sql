@@ -28,3 +28,8 @@ CREATE TABLE IF NOT EXISTS tombstones (
   id TEXT PRIMARY KEY,
   deleted_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS history_tombstones (
+  id TEXT PRIMARY KEY,
+  deleted_at INTEGER NOT NULL
+);

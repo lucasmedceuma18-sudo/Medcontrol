@@ -146,11 +146,14 @@ export default {
         }
       }
       for (const h of body.history || []) {
-        const existing = await env.DB.prepare('SELECT updated_at FROM history WHERE id = ?').bind(h.id).first();
+        const hIdStr = String(h.id);
+        const hTomb = await env.DB.prepare('SELECT id FROM history_tombstones WHERE id = ?').bind(hIdStr).first();
+        if (hTomb) continue; // registro de histórico removido manualmente — nunca ressuscitar
+        const existing = await env.DB.prepare('SELECT updated_at FROM history WHERE id = ?').bind(hIdStr).first();
         if (!existing || h.updatedAt > existing.updated_at) {
           const { id, updatedAt, ...rest } = h;
           await env.DB.prepare('INSERT INTO history (id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at')
-            .bind(id, JSON.stringify(rest), updatedAt).run();
+            .bind(hIdStr, JSON.stringify(rest), updatedAt).run();
         }
       }
 
