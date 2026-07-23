@@ -494,6 +494,7 @@ body {
 .disch-btn.transf { color: var(--cyan); border-color: rgba(6,182,212,.3); }
 .disch-btn.obito { color: var(--t2); border-color: var(--border2); }
 .disch-btn.excluir { color: var(--red); border-color: rgba(239,68,68,.3); }
+.disch-btn.exame { color: var(--purple); border-color: rgba(139,92,246,.3); }
 
 .meds-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .med-row {
@@ -530,6 +531,7 @@ body {
   transition: all .15s;
 }
 .pend-chk:active { background: var(--yellow); color: #000; transform: scale(.9); }
+.pend-chk.done { background: var(--green); border-color: var(--green); color: #000; }
 
 .alta-row {
   background: var(--gdim);
@@ -810,6 +812,10 @@ select.finput { cursor: pointer; }
   <!-- TRANSFERÊNCIAS -->
   <div class="view" id="v-transf">
     <div class="section-hd"><div class="section-title">Central de Leitos</div><div class="section-sub" id="transf-count"></div></div>
+    <div class="ward-pills">
+      <button class="pill active" id="transf-seg-aguardando" onclick="setTransfView('aguardando')">Aguardando</button>
+      <button class="pill" id="transf-seg-historico" onclick="setTransfView('historico')">Histórico</button>
+    </div>
     <div id="transf-list"></div>
   </div>
 
@@ -880,7 +886,7 @@ select.finput { cursor: pointer; }
     <div id="dAtbSec"><div class="ssec-title">Antibióticos</div><div class="meds-list" id="dAtbs"></div></div>
     <div id="dPendSec"><div class="ssec-title">Pendências</div><div class="pend-list" id="dPend"></div></div>
     <div id="dAltaSec"><div class="ssec-title">Previsão de Alta</div><div class="alta-row" id="dAlta"></div></div>
-    <div id="dTransfSec"><div class="ssec-title">Transferência</div><div class="transf-box" id="dTransf"></div></div>
+    <div id="dTransfSec"><div class="ssec-title">Solicitação à Central</div><div class="transf-box" id="dTransf"></div></div>
     <div class="ssec-title">Estimativa SIGTAP (AIH)</div><div class="aih-box" id="dAih"></div>
     <div class="ssec-title">Resumo Clínico (IA)</div>
     <button class="btn-cancel" style="width:100%;margin-bottom:10px;" id="dSummaryBtn">📝 Gerar Resumo</button>
@@ -921,15 +927,37 @@ select.finput { cursor: pointer; }
         <div class="fg"><label class="flabel">Data de internação</label><input class="finput" id="fad" type="date"></div>
         <div class="fg"><label class="flabel">Previsão de Alta</label><input class="finput" id="falt" type="date"></div>
       </div>
-      <div class="fg"><label class="flabel">Aguardando transferência?</label>
+      <div class="fg"><label class="flabel">Aguardando Central de Leitos?</label>
         <select class="finput" id="ftr" onchange="toggleTrFields()">
           <option value="nao">Não</option>
-          <option value="sim">Sim — aguardando central de leitos</option>
+          <option value="sim">Sim</option>
         </select>
       </div>
       <div id="ftr-extra" style="display:none">
+        <div class="fg" style="margin-bottom:12px"><label class="flabel">Tipo de solicitação</label>
+          <select class="finput" id="ftipo" onchange="toggleExamFields()">
+            <option value="transferencia">Transferência (leito)</option>
+            <option value="exame">Exame ou avaliação de alto custo</option>
+          </select>
+        </div>
+        <div id="fexam-extra" style="display:none">
+          <div class="fg" style="margin-bottom:12px"><label class="flabel">Tipo de exame/avaliação</label><input class="finput" id="fexamtipo" placeholder="Ex: Tomografia de crânio com contraste"></div>
+          <div class="fg" style="margin-bottom:12px"><label class="flabel">Modelo de requisitos</label>
+            <select class="finput" id="freqModelo" onchange="applyReqModelo()">
+              <option value="">— selecione um modelo (opcional) —</option>
+              <option value="tc_contraste">Tomografia com contraste</option>
+              <option value="tc_sem_contraste">Tomografia sem contraste</option>
+              <option value="rnm">Ressonância magnética</option>
+              <option value="interconsulta">Avaliação com especialista</option>
+              <option value="eda">Endoscopia digestiva alta</option>
+              <option value="colono">Colonoscopia</option>
+            </select>
+          </div>
+        </div>
         <div class="fg" style="margin-bottom:12px"><label class="flabel">Nº FastMedic (protocolo)</label><input class="finput" id="ffm" placeholder="Ex: FM-2024-00458"></div>
-        <div class="fg"><label class="flabel">Hospital de destino / Motivo</label><input class="finput" id="fdest" placeholder="Ex: HGF – UTI Cardiológica"></div>
+        <div class="fg" style="margin-bottom:12px"><label class="flabel">Hospital/local de destino</label><input class="finput" id="fdest" placeholder="Ex: HGF – UTI Cardiológica"></div>
+        <div class="fg" style="margin-bottom:12px"><label class="flabel">Solicitado em</label><input class="finput" id="fsolic" type="datetime-local"></div>
+        <div class="fg"><label class="flabel">Requisitos pendentes (um por linha)</label><textarea class="finput" id="freq" placeholder="Ex: Função renal recente"></textarea></div>
       </div>
       <div class="form-actions">
         <button class="btn-cancel" onclick="closeAdd()">Cancelar</button>
@@ -1049,6 +1077,22 @@ const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
 const dUntil= s => s ? Math.ceil((new Date(s+'T12:00:00') - today)/86400000) : null;
 const fmtD  = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+function waitHours(solicitadoEm){
+  if(!solicitadoEm) return 0;
+  return Math.max(0, (Date.now() - new Date(solicitadoEm).getTime()) / 3600000);
+}
+function waitTime(solicitadoEm){
+  const h = waitHours(solicitadoEm);
+  const label = h < 24 ? `${Math.floor(h)}h` : `${Math.floor(h/24)}d ${Math.floor(h%24)}h`;
+  const level = h >= 72 ? 'alert' : h >= 24 ? 'warn' : 'ok';
+  return { h, label, level };
+}
+function solicitacaoDesc(sol){
+  if(!sol) return 'não aguarda Central de Leitos';
+  const tipoTxt = sol.tipo==='exame' ? `exame/avaliação (${sol.examTipo||'não especificado'})` : 'transferência de leito';
+  const wt = waitTime(sol.solicitadoEm);
+  return `aguardando ${tipoTxt} há ${wt.label}, FastMedic ${sol.fastmedic||'—'} → ${sol.destino||'—'}`;
+}
 
 // ── storage ──
 const SK = 'mc_v3';
@@ -1152,7 +1196,7 @@ function badges(){
   document.getElementById('nb-pac').textContent = n;
   document.getElementById('nb-atb').textContent = pts.filter(p=>p.antibiotics.length).length;
   document.getElementById('nb-pend').textContent = pts.filter(p=>p.pendings.length).length;
-  document.getElementById('nb-transf').textContent = pts.filter(p=>p.transfer).length;
+  document.getElementById('nb-transf').textContent = pts.filter(p=>p.solicitacao).length;
   document.getElementById('nb-plantao').textContent = plantoes.length;
   document.getElementById('hOcc').innerHTML = `<div class="dot"></div><strong>${n}</strong>/<span>100</span> leitos`;
 }
@@ -1162,10 +1206,10 @@ function tileHTML(p){
   const d=dAgo(p.admitDate);
   const dc=d>=14?'var(--red)':d>=7?'var(--yellow)':'var(--green)';
   const diag=p.pathologies[0]||'Sem diagnóstico';
-  return `<div class="ptile${p.transfer?' transf':''}" onclick="openDetail('${p.id}')" title="${p.name}">
+  return `<div class="ptile${p.solicitacao?' transf':''}" onclick="openDetail('${p.id}')" title="${p.name}">
     <div class="ptile-badges">
       ${p.antibiotics.length?`<div class="ptile-badge atb" title="Em antibiótico">💊</div>`:''}
-      ${p.transfer?`<div class="ptile-badge transf" title="Aguardando transferência">🚑</div>`:''}
+      ${p.solicitacao?`<div class="ptile-badge transf" title="${p.solicitacao.tipo==='exame'?'Aguardando exame/avaliação':'Aguardando transferência'}">${p.solicitacao.tipo==='exame'?'🔬':'🚑'}</div>`:''}
       ${p.pendings.length?`<div class="ptile-badge pend" title="${p.pendings.length} pendência${p.pendings.length!==1?'s':''}">${p.pendings.length}</div>`:''}
     </div>
     <div class="ptile-bed">${p.bed}</div>
@@ -1178,7 +1222,7 @@ function tileHTML(p){
 // ── dashboard ──
 function rDash(){
   const occ=pts.length,atb=pts.filter(p=>p.antibiotics.length).length,pend=pts.filter(p=>p.pendings.length).length,
-    transf=pts.filter(p=>p.transfer).length,alta=pts.filter(p=>p.altaDate&&dUntil(p.altaDate)<=3&&dUntil(p.altaDate)>=0).length,
+    transf=pts.filter(p=>p.solicitacao).length,alta=pts.filter(p=>p.altaDate&&dUntil(p.altaDate)<=3&&dUntil(p.altaDate)>=0).length,
     long=pts.filter(p=>dAgo(p.admitDate)>=14).length, noAlta=pts.filter(p=>!p.altaDate).length;
   const aihMatches=pts.map(estimateAIH), aihTotal=aihMatches.reduce((s,a)=>s+(a?a.valor:0),0), aihCount=aihMatches.filter(Boolean).length;
   const aihExcedido=pts.filter((p,i)=>aihMatches[i]&&aihMatches[i].permanencia!=null&&dAgo(p.admitDate)>aihMatches[i].permanencia).length;
@@ -1186,7 +1230,7 @@ function rDash(){
     <div class="dcard"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
     <div class="dcard"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
     <div class="dcard"><div class="dcard-label">Em Antibióticos</div><div class="dcard-val" style="color:var(--red)">${atb}</div><div class="dcard-sub">em ATB ativo</div></div>
-    <div class="dcard"><div class="dcard-label">Transferências</div><div class="dcard-val" style="color:var(--cyan)">${transf}</div><div class="dcard-sub">aguardando leito</div></div>
+    <div class="dcard"><div class="dcard-label">Aguardando Central</div><div class="dcard-val" style="color:var(--cyan)">${transf}</div><div class="dcard-sub">transferência/exame</div></div>
     <div class="dcard"><div class="dcard-label">Pendências</div><div class="dcard-val" style="color:var(--yellow)">${pend}</div><div class="dcard-sub">pacientes c/ pendências</div></div>
     <div class="dcard"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
     <div class="dcard"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
@@ -1257,6 +1301,14 @@ function resolvePend(pid,idx){
   if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
   syncNow();
 }
+function toggleRequisito(pid,idx){
+  const p=pts.find(x=>x.id===pid); if(!p||!p.solicitacao) return;
+  const r=p.solicitacao.requisitos[idx]; if(!r) return;
+  r.feito=!r.feito; p.updatedAt=Date.now(); save(); badges();
+  if(document.getElementById('detSheet').classList.contains('open')) openDetail(pid);
+  if(curView==='transf') rTransf();
+  syncNow();
+}
 
 // ── saída do paciente (alta / transferência / óbito) ──
 const HK = 'mc_v3_hist';
@@ -1281,6 +1333,19 @@ function dischargePatient(id, outcome){
   save(); badges(); closeDetail();
   render(curView);
   toast(`${o.icon} ${p.name} — ${o.label} registrada`);
+  syncNow();
+}
+function concludeExamRequest(id){
+  const p=pts.find(x=>x.id===id); if(!p||!p.solicitacao) return;
+  if(!confirm(`Concluir a solicitação de exame/avaliação de ${p.name}?\n\nO paciente CONTINUA internado — isso só encerra a espera pela Central.`)) return;
+  const hist=loadHist();
+  hist.unshift({...p, outcome:'exame_concluido', outcomeDate:new Date().toISOString().split('T')[0], updatedAt:Date.now()});
+  saveHist(hist);
+  p.solicitacao = null;
+  p.updatedAt = Date.now();
+  save(); badges(); closeDetail();
+  render(curView);
+  toast(`🔬 ${p.name} — exame/avaliação concluído`);
   syncNow();
 }
 function deletePatient(id){
@@ -1314,7 +1379,7 @@ async function generateSummary(id){
   const box=document.getElementById('dSummary');
   box.style.display=''; box.innerHTML='<div class="aih-empty">🤖 Gerando resumo…</div>';
   try{
-    const info = `Nome: ${p.name}; Idade: ${p.age}; Leito: ${p.bed}; Ala: ${p.ward}; Internado desde ${fmtD(p.admitDate)} (${dAgo(p.admitDate)} dias); Patologias: ${p.pathologies.join(', ')||'—'}; Medicações: ${p.medications.join('; ')||'—'}; Antibióticos: ${p.antibiotics.map(a=>a.name+' (D'+dAgo(a.startDate)+')').join('; ')||'nenhum'}; Pendências: ${p.pendings.join('; ')||'nenhuma'}; Previsão de alta: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}; Transferência: ${p.transfer?('aguardando central de leitos, '+p.fastmedic+' → '+p.destino):'não aguarda transferência'}.`;
+    const info = `Nome: ${p.name}; Idade: ${p.age}; Leito: ${p.bed}; Ala: ${p.ward}; Internado desde ${fmtD(p.admitDate)} (${dAgo(p.admitDate)} dias); Patologias: ${p.pathologies.join(', ')||'—'}; Medicações: ${p.medications.join('; ')||'—'}; Antibióticos: ${p.antibiotics.map(a=>a.name+' (D'+dAgo(a.startDate)+')').join('; ')||'nenhum'}; Pendências: ${p.pendings.join('; ')||'nenhuma'}; Previsão de alta: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}; Central de Leitos: ${solicitacaoDesc(p.solicitacao)}.`;
     const prompt = `Gere um resumo clínico breve (3 a 5 frases, em português, tom objetivo de passagem de plantão hospitalar) com base SOMENTE nestes dados, sem inventar informação adicional: ${info}`;
     const text = await callGemini(prompt);
     box.innerHTML = `<div class="aih-proc" style="white-space:pre-wrap;">${(text||'(sem resposta)').replace(/</g,'&lt;')}</div>`;
@@ -1324,25 +1389,60 @@ async function generateSummary(id){
 }
 
 // ── transferências ──
+let transfSegView = 'aguardando';
+function setTransfView(v){
+  transfSegView = v;
+  document.getElementById('transf-seg-aguardando').classList.toggle('active', v==='aguardando');
+  document.getElementById('transf-seg-historico').classList.toggle('active', v==='historico');
+  rTransf();
+}
+const WAIT_COLOR = { ok:'var(--green)', warn:'var(--yellow)', alert:'var(--red)' };
 function rTransf(){
-  const w=pts.filter(p=>p.transfer);
+  if(transfSegView==='historico'){ rTransfHistorico(); return; }
+  const w=pts.filter(p=>p.solicitacao).sort((a,b)=>waitHours(b.solicitacao.solicitadoEm)-waitHours(a.solicitacao.solicitadoEm));
   document.getElementById('transf-count').textContent=`${w.length} aguardando`;
-  document.getElementById('transf-list').innerHTML=w.length?w.map(p=>`
+  document.getElementById('transf-list').innerHTML=w.length?w.map(p=>{
+    const sol=p.solicitacao, wt=waitTime(sol.solicitadoEm);
+    const reqDone=sol.requisitos.filter(r=>r.feito).length, reqTotal=sol.requisitos.length;
+    return `
     <div class="tcard" onclick="openDetail('${p.id}')">
       <div class="tcard-top">
         <div class="tpulse"></div>
         <div class="tcard-name">${p.name}</div>
-        <div class="atb-pward" style="flex-shrink:0;">${p.ward}</div>
+        <div class="atb-pward" style="flex-shrink:0;">${sol.tipo==='exame'?'🔬 Exame':'🚑 Transferência'}</div>
         <div class="tcard-bed">${p.bed}</div>
       </div>
-      <div class="fm-box"><div class="fm-label">FASTMEDIC / PROTOCOLO</div><div class="fm-val">${p.fastmedic||'—'}</div></div>
+      <div class="fm-box"><div class="fm-label">FASTMEDIC / PROTOCOLO</div><div class="fm-val">${sol.fastmedic||'—'}</div></div>
       <div class="tcard-info">
-        <div>🏥 <strong>Destino:</strong> ${p.destino||'—'}</div>
-        <div>🛏️ <strong>Leito:</strong> ${p.bed} · ${p.ward}</div>
-        <div>📅 <strong>Internado há:</strong> ${dAgo(p.admitDate)} dias</div>
+        ${sol.tipo==='exame'?`<div>🔬 <strong>Exame/avaliação:</strong> ${sol.examTipo||'—'}</div>`:''}
+        <div>🏥 <strong>Destino:</strong> ${sol.destino||'—'}</div>
+        <div>⏱️ <strong>Aguardando há:</strong> <span style="color:${WAIT_COLOR[wt.level]};font-weight:700;">${wt.label}</span></div>
+        ${reqTotal?`<div>📋 <strong>Requisitos:</strong> ${reqDone}/${reqTotal} concluídos</div>`:''}
         <div style="margin-top:6px;font-size:.72rem;color:var(--t3);">${p.pathologies.join(' · ')}</div>
       </div>
-    </div>`).join(''):'<div class="empty"><div class="ei">🚑</div><p>Nenhuma transferência ativa.</p></div>';
+    </div>`;
+  }).join(''):'<div class="empty"><div class="ei">🚑</div><p>Nenhuma solicitação ativa.</p></div>';
+}
+function rTransfHistorico(){
+  const h=loadHist().filter(x=>x.outcome==='transferencia'||x.outcome==='exame_concluido');
+  document.getElementById('transf-count').textContent=`${h.length} registro${h.length!==1?'s':''}`;
+  document.getElementById('transf-list').innerHTML=h.length?h.map(x=>{
+    const isExame=x.outcome==='exame_concluido';
+    const sol=x.solicitacao||{};
+    return `
+    <div class="tcard">
+      <div class="tcard-top">
+        <div class="tcard-name">${x.name}</div>
+        <div class="atb-pward" style="flex-shrink:0;">${isExame?'🔬 Exame':'🚑 Transferência'}</div>
+        <div class="tcard-bed">${x.bed}</div>
+      </div>
+      <div class="tcard-info">
+        ${isExame&&sol.examTipo?`<div>🔬 <strong>Exame/avaliação:</strong> ${sol.examTipo}</div>`:''}
+        <div>🏥 <strong>Destino:</strong> ${sol.destino||'—'}</div>
+        <div>📅 <strong>Concluído em:</strong> ${fmtD(x.outcomeDate)}</div>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty"><div class="ei">📋</div><p>Nenhum registro no histórico.</p></div>';
 }
 
 // ── passagens de plantão (armazenamento local no aparelho, não sincronizado entre dispositivos) ──
@@ -1450,9 +1550,12 @@ function openDetail(id){
     document.getElementById('dAlta').innerHTML=`<span>📅</span><div><div class="alta-date">${fmtD(p.altaDate)}</div><div class="alta-sub">${a>0?`em ${a} dia${a!==1?'s':''}`:a===0?'Previsão para hoje':'Atrasada '+Math.abs(a)+'d'}</div></div>`;
   } else altaSec.style.display='none';
   const trSec=document.getElementById('dTransfSec');
-  if(p.transfer){
+  if(p.solicitacao){
     trSec.style.display='';
-    document.getElementById('dTransf').innerHTML=`<div class="transf-title">🚑 Aguardando Central de Leitos</div><div class="fm-num">${p.fastmedic}</div><div class="transf-info"><strong>Destino:</strong> ${p.destino}<br><strong>Status:</strong> Solicitação ativa · aguardando confirmação de leito</div>`;
+    const sol=p.solicitacao, wt=waitTime(sol.solicitadoEm);
+    const reqHTML=sol.requisitos.length?`<div class="pend-list" style="margin-top:8px;">${sol.requisitos.map((r,i)=>`
+      <div class="pend-row"><div class="pend-chk${r.feito?' done':''}" onclick="toggleRequisito('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;${r.feito?'text-decoration:line-through;color:var(--t3);':''}">${r.item}</span></div>`).join('')}</div>`:'';
+    document.getElementById('dTransf').innerHTML=`<div class="transf-title">${sol.tipo==='exame'?'🔬 Aguardando Exame/Avaliação':'🚑 Aguardando Central de Leitos'}</div><div class="fm-num">${sol.fastmedic||'—'}</div><div class="transf-info">${sol.tipo==='exame'?`<strong>Exame/avaliação:</strong> ${sol.examTipo||'—'}<br>`:''}<strong>Destino:</strong> ${sol.destino||'—'}<br><strong>Aguardando há:</strong> <span style="color:${WAIT_COLOR[wt.level]};font-weight:700;">${wt.label}</span></div>${reqHTML}`;
   } else trSec.style.display='none';
   const aih = estimateAIH(p);
   if(aih){
@@ -1466,8 +1569,9 @@ function openDetail(id){
   }
   document.getElementById('dDischarge').innerHTML=`
     <button class="disch-btn alta" onclick="dischargePatient('${p.id}','alta')"><span class="di">✅</span>Alta</button>
-    <button class="disch-btn transf" onclick="dischargePatient('${p.id}','transferencia')"><span class="di">🚑</span>Transferência</button>
+    <button class="disch-btn transf" onclick="dischargePatient('${p.id}','transferencia')"><span class="di">🚑</span>${p.solicitacao&&p.solicitacao.tipo==='transferencia'?'Concluir Transf.':'Transferência'}</button>
     <button class="disch-btn obito" onclick="dischargePatient('${p.id}','obito')"><span class="di">⚫</span>Óbito</button>
+    ${p.solicitacao&&p.solicitacao.tipo==='exame'?`<button class="disch-btn exame" onclick="concludeExamRequest('${p.id}')"><span class="di">🔬</span>Concluir Exame</button>`:''}
     <button class="disch-btn excluir" onclick="deletePatient('${p.id}')"><span class="di">🗑️</span>Excluir</button>`;
   document.getElementById('detOvl').classList.add('show');
   requestAnimationFrame(()=>document.getElementById('detSheet').classList.add('open'));
@@ -1479,6 +1583,18 @@ function closeDetail(){
 
 // ── add / edit sheet ──
 let editingId = null;
+const REQ_MODELOS = {
+  tc_contraste: ['Função renal recente (ureia/creatinina)', 'Pesquisa de alergia a contraste', 'Jejum conforme protocolo'],
+  tc_sem_contraste: ['Laudo/indicação clínica atualizada'],
+  rnm: ['Triagem de contraindicações (marca-passo, implantes metálicos)', 'Formulário de segurança em RM'],
+  interconsulta: ['Resumo clínico atualizado', 'Exames pertinentes à especialidade'],
+  eda: ['Jejum', 'Avaliação de risco anestésico (se sedação)'],
+  colono: ['Preparo intestinal completo', 'Jejum', 'Avaliação de risco anestésico'],
+};
+function toDatetimeLocal(d){
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 function openAdd(){
   editingId = null;
   document.getElementById('addTitle').textContent='Novo Paciente';
@@ -1488,7 +1604,11 @@ function openAdd(){
   document.getElementById('fp').value=''; document.getElementById('fm').value=''; document.getElementById('fta').value=''; document.getElementById('fpend').value='';
   document.getElementById('fad').value=new Date().toISOString().split('T')[0];
   document.getElementById('falt').value='';
-  document.getElementById('ftr').value='nao'; document.getElementById('ffm').value=''; document.getElementById('fdest').value='';
+  document.getElementById('ftr').value='nao';
+  document.getElementById('ftipo').value='transferencia'; document.getElementById('fexamtipo').value=''; document.getElementById('freqModelo').value='';
+  document.getElementById('ffm').value=''; document.getElementById('fdest').value='';
+  document.getElementById('fsolic').value=toDatetimeLocal(new Date());
+  document.getElementById('freq').value='';
   toggleTrFields();
   document.getElementById('addOvl').classList.add('show');
   requestAnimationFrame(()=>document.getElementById('addSheet').classList.add('open'));
@@ -1508,9 +1628,15 @@ function openEdit(id){
   document.getElementById('fpend').value=p.pendings.join('\n');
   document.getElementById('fad').value=p.admitDate;
   document.getElementById('falt').value=p.altaDate||'';
-  document.getElementById('ftr').value=p.transfer?'sim':'nao';
-  document.getElementById('ffm').value=p.fastmedic||'';
-  document.getElementById('fdest').value=p.destino||'';
+  const sol = p.solicitacao;
+  document.getElementById('ftr').value=sol?'sim':'nao';
+  document.getElementById('ftipo').value=sol?sol.tipo:'transferencia';
+  document.getElementById('fexamtipo').value=sol&&sol.examTipo||'';
+  document.getElementById('freqModelo').value='';
+  document.getElementById('ffm').value=sol&&sol.fastmedic||'';
+  document.getElementById('fdest').value=sol&&sol.destino||'';
+  document.getElementById('fsolic').value=sol&&sol.solicitadoEm||toDatetimeLocal(new Date());
+  document.getElementById('freq').value=sol?sol.requisitos.map(r=>r.item).join('\n'):'';
   toggleTrFields();
   closeDetail();
   document.getElementById('addOvl').classList.add('show');
@@ -1519,7 +1645,13 @@ function openEdit(id){
 function closeAdd(){ editingId=null; document.getElementById('addSheet').classList.remove('open'); setTimeout(()=>document.getElementById('addOvl').classList.remove('show'),320); }
 function closeAdd2(e){ if(e.target===document.getElementById('addOvl')) closeAdd(); }
 document.getElementById('addOvl').addEventListener('click',closeAdd2);
-function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; }
+function toggleTrFields(){ document.getElementById('ftr-extra').style.display=document.getElementById('ftr').value==='sim'?'':'none'; toggleExamFields(); }
+function toggleExamFields(){ document.getElementById('fexam-extra').style.display=document.getElementById('ftipo').value==='exame'?'':'none'; }
+function applyReqModelo(){
+  const key=document.getElementById('freqModelo').value;
+  if(!key||!REQ_MODELOS[key]) return;
+  document.getElementById('freq').value=REQ_MODELOS[key].join('\n');
+}
 
 async function suggestWithAI(){
   const raw = document.getElementById('fp').value.trim();
@@ -1623,7 +1755,7 @@ function runImport(){
       ward: wardIdx>=0 ? ((r[wardIdx]||'').trim()||'Clínica Médica') : 'Clínica Médica',
       admitDate: (admitIdx>=0 && parseImpDate(r[admitIdx])) || todayStr,
       altaDate:null, pathologies: (diag && diag!=='-') ? [diag] : [], medications:[], antibiotics:[], pendings:[],
-      transfer:false, fastmedic:'', destino:'', updatedAt: Date.now()
+      solicitacao:null, updatedAt: Date.now()
     });
   });
   if(!imported.length){ toast('⚠️ Nenhum paciente válido encontrado',true); return; }
@@ -1653,7 +1785,7 @@ function buildRosterContext(){
   return pts.map(p=>{
     const d=dAgo(p.admitDate);
     const atbInfo = p.antibiotics.length ? p.antibiotics.map(a=>`${a.name} (D${dAgo(a.startDate)})`).join('; ') : 'nenhum';
-    return `Leito ${p.bed} — ${p.name}, ${p.age}a, ${p.ward}, internado há ${d}d. Patologias: ${p.pathologies.join(', ')||'—'}. ATB: ${atbInfo}. Pendências: ${p.pendings.join('; ')||'nenhuma'}. Alta prevista: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}. Transferência: ${p.transfer?('sim, '+p.fastmedic+' → '+p.destino):'não'}.`;
+    return `Leito ${p.bed} — ${p.name}, ${p.age}a, ${p.ward}, internado há ${d}d. Patologias: ${p.pathologies.join(', ')||'—'}. ATB: ${atbInfo}. Pendências: ${p.pendings.join('; ')||'nenhuma'}. Alta prevista: ${p.altaDate?fmtD(p.altaDate):'sem previsão'}. Central de Leitos: ${solicitacaoDesc(p.solicitacao)}.`;
   }).join('\n');
 }
 function appendChatMsg(role, text, loading=false){
@@ -1777,6 +1909,23 @@ function savePatient(){
     const prev = existing && existing.antibiotics.find(a=>a.name===n);
     return prev ? prev : {name:n, startDate:new Date().toISOString().split('T')[0]};
   });
+  let solicitacao = null;
+  if(document.getElementById('ftr').value==='sim'){
+    const newReqItems = (document.getElementById('freq').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    const prevSol = existing && existing.solicitacao;
+    const requisitos = newReqItems.map(item=>{
+      const prev = prevSol && prevSol.requisitos.find(r=>r.item===item);
+      return prev ? prev : {item, feito:false};
+    });
+    solicitacao = {
+      tipo: document.getElementById('ftipo').value,
+      examTipo: document.getElementById('fexamtipo').value.trim(),
+      fastmedic: document.getElementById('ffm').value.trim(),
+      destino: document.getElementById('fdest').value.trim(),
+      solicitadoEm: document.getElementById('fsolic').value || toDatetimeLocal(new Date()),
+      requisitos,
+    };
+  }
   const data={
     bed, name,
     age:parseInt(document.getElementById('fa').value)||0,
@@ -1787,9 +1936,7 @@ function savePatient(){
     medications:(document.getElementById('fm').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
     antibiotics,
     pendings:(document.getElementById('fpend').value||'').split('\n').map(s=>s.trim()).filter(Boolean),
-    transfer:document.getElementById('ftr').value==='sim',
-    fastmedic:document.getElementById('ffm').value.trim(),
-    destino:document.getElementById('fdest').value.trim(),
+    solicitacao,
     updatedAt: Date.now()
   };
   if(existing){
