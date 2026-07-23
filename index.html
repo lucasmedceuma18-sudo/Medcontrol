@@ -878,6 +878,7 @@ select.finput { cursor: pointer; }
     <div class="disch-row" id="dDischarge"></div>
   </div>
   <div class="sheet-body">
+    <div class="auth-info" id="dHistBanner" style="display:none;margin-bottom:14px;">📋 Registro histórico — somente visualização.</div>
     <div class="sstat-row" id="dStats"></div>
     <div class="ssec-title">Patologias</div>
     <div id="dPath" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px;"></div>
@@ -1429,8 +1430,9 @@ function rTransfHistorico(){
   document.getElementById('transf-list').innerHTML=h.length?h.map(x=>{
     const isExame=x.outcome==='exame_concluido';
     const sol=x.solicitacao||{};
+    const stillActive=pts.some(p=>p.id===x.id);
     return `
-    <div class="tcard">
+    <div class="tcard" onclick="${stillActive?`openDetail('${x.id}')`:`openHistoryDetail('${x.id}')`}">
       <div class="tcard-top">
         <div class="tcard-name">${x.name}</div>
         <div class="atb-pward" style="flex-shrink:0;">${isExame?'🔬 Exame':'🚑 Transferência'}</div>
@@ -1518,12 +1520,22 @@ function deletePlantaoConfirm(){
 // ── detail sheet ──
 function openDetail(id){
   const p=pts.find(x=>x.id===id); if(!p) return;
+  renderDetail(p, false);
+}
+function openHistoryDetail(histId){
+  const p=loadHist().find(h=>h.id===histId); if(!p) return;
+  renderDetail(p, true);
+}
+function renderDetail(p, historical){
   const d=dAgo(p.admitDate), ad=p.antibiotics.length?dAgo(p.antibiotics[0].startDate):null, alt=dUntil(p.altaDate);
+  document.getElementById('dHistBanner').style.display=historical?'':'none';
   document.getElementById('dBed').textContent=p.bed;
   document.getElementById('dName').textContent=p.name;
   document.getElementById('dSub').textContent=`${p.age} anos · ${p.ward} · Internado desde ${fmtD(p.admitDate)}`;
-  document.getElementById('dEditBtn').onclick=()=>openEdit(p.id);
-  document.getElementById('dSummaryBtn').onclick=()=>generateSummary(p.id);
+  document.getElementById('dEditBtn').style.display=historical?'none':'';
+  document.getElementById('dEditBtn').onclick=historical?null:()=>openEdit(p.id);
+  document.getElementById('dSummaryBtn').style.display=historical?'none':'';
+  document.getElementById('dSummaryBtn').onclick=historical?null:()=>generateSummary(p.id);
   document.getElementById('dSummary').style.display='none';
   document.getElementById('dSummary').innerHTML='';
   document.getElementById('dStats').innerHTML=`
@@ -1541,7 +1553,9 @@ function openDetail(id){
   const pendSec=document.getElementById('dPendSec');
   if(p.pendings.length){
     pendSec.style.display='';
-    document.getElementById('dPend').innerHTML=p.pendings.map((pend,i)=>`<div class="pend-row"><div class="pend-chk" onclick="resolvePend('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`).join('');
+    document.getElementById('dPend').innerHTML=p.pendings.map((pend,i)=>historical
+      ?`<div class="pend-row"><div class="pend-chk done">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`
+      :`<div class="pend-row"><div class="pend-chk" onclick="resolvePend('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;">${pend}</span></div>`).join('');
   } else pendSec.style.display='none';
   const altaSec=document.getElementById('dAltaSec');
   if(p.altaDate){
@@ -1553,8 +1567,9 @@ function openDetail(id){
   if(p.solicitacao){
     trSec.style.display='';
     const sol=p.solicitacao, wt=waitTime(sol.solicitadoEm);
-    const reqHTML=sol.requisitos.length?`<div class="pend-list" style="margin-top:8px;">${sol.requisitos.map((r,i)=>`
-      <div class="pend-row"><div class="pend-chk${r.feito?' done':''}" onclick="toggleRequisito('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;${r.feito?'text-decoration:line-through;color:var(--t3);':''}">${r.item}</span></div>`).join('')}</div>`:'';
+    const reqHTML=sol.requisitos.length?`<div class="pend-list" style="margin-top:8px;">${sol.requisitos.map((r,i)=>historical
+      ?`<div class="pend-row"><div class="pend-chk${r.feito?' done':''}">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;${r.feito?'text-decoration:line-through;color:var(--t3);':''}">${r.item}</span></div>`
+      :`<div class="pend-row"><div class="pend-chk${r.feito?' done':''}" onclick="toggleRequisito('${p.id}',${i})">✓</div><span style="flex:1;color:var(--text);font-size:.82rem;${r.feito?'text-decoration:line-through;color:var(--t3);':''}">${r.item}</span></div>`).join('')}</div>`:'';
     document.getElementById('dTransf').innerHTML=`<div class="transf-title">${sol.tipo==='exame'?'🔬 Aguardando Exame/Avaliação':'🚑 Aguardando Central de Leitos'}</div><div class="fm-num">${sol.fastmedic||'—'}</div><div class="transf-info">${sol.tipo==='exame'?`<strong>Exame/avaliação:</strong> ${sol.examTipo||'—'}<br>`:''}<strong>Destino:</strong> ${sol.destino||'—'}<br><strong>Aguardando há:</strong> <span style="color:${WAIT_COLOR[wt.level]};font-weight:700;">${wt.label}</span></div>${reqHTML}`;
   } else trSec.style.display='none';
   const aih = estimateAIH(p);
@@ -1567,7 +1582,7 @@ function openDetail(id){
   } else {
     document.getElementById('dAih').innerHTML = `<div class="aih-empty">Sem estimativa cadastrada para este diagnóstico.</div>`;
   }
-  document.getElementById('dDischarge').innerHTML=`
+  document.getElementById('dDischarge').innerHTML = historical ? '' : `
     <button class="disch-btn alta" onclick="dischargePatient('${p.id}','alta')"><span class="di">✅</span>Alta</button>
     <button class="disch-btn transf" onclick="dischargePatient('${p.id}','transferencia')"><span class="di">🚑</span>${p.solicitacao&&p.solicitacao.tipo==='transferencia'?'Concluir Transf.':'Transferência'}</button>
     <button class="disch-btn obito" onclick="dischargePatient('${p.id}','obito')"><span class="di">⚫</span>Óbito</button>
