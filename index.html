@@ -1086,7 +1086,7 @@ select.finput { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = '2026-07-23.1';
+const APP_VERSION = '2026-07-23.2';
 // ── utils ──
 const today = new Date();
 const dAgo  = s => Math.floor((today - new Date(s)) / 86400000);
@@ -1278,6 +1278,15 @@ function rDash(){
     long=pts.filter(p=>dAgo(p.admitDate)>=14).length, noAlta=pts.filter(p=>!p.altaDate).length;
   const aihMatches=pts.map(estimateAIH), aihTotal=aihMatches.reduce((s,a)=>s+(a?a.valor:0),0), aihCount=aihMatches.filter(Boolean).length;
   const aihExcedido=pts.filter((p,i)=>aihMatches[i]&&aihMatches[i].permanencia!=null&&dAgo(p.admitDate)>aihMatches[i].permanencia).length;
+  const hist=loadHist();
+  const totalObitos=hist.filter(h=>h.outcome==='obito').length;
+  const totalTransfSaida=hist.filter(h=>h.outcome==='transferencia').length;
+  const totalAltas=hist.filter(h=>h.outcome==='alta').length;
+  const totalSaidas=totalObitos+totalTransfSaida+totalAltas;
+  const mesAtual=new Date().toISOString().slice(0,7);
+  const internacoesMes=pts.filter(p=>p.admitDate&&p.admitDate.startsWith(mesAtual)).length
+    + hist.filter(h=>h.outcome!=='exame_concluido'&&h.admitDate&&h.admitDate.startsWith(mesAtual)).length;
+  const saidasMes=hist.filter(h=>h.outcome!=='exame_concluido'&&h.outcomeDate&&h.outcomeDate.startsWith(mesAtual)).length;
   document.getElementById('dgrid').innerHTML=`
     <div class="dcard"><div class="dcard-label">Leitos Ocupados</div><div class="dcard-val" style="color:var(--blue)">${occ}</div><div class="dcard-sub">de 100 disponíveis</div></div>
     <div class="dcard"><div class="dcard-label">Leitos Livres</div><div class="dcard-val" style="color:var(--green)">${100-occ}</div><div class="dcard-sub">disponíveis agora</div></div>
@@ -1287,6 +1296,11 @@ function rDash(){
     <div class="dcard"><div class="dcard-label">Alta em ≤3 dias</div><div class="dcard-val" style="color:var(--green)">${alta}</div><div class="dcard-sub">previsão próxima</div></div>
     <div class="dcard"><div class="dcard-label">Internação Longa</div><div class="dcard-val" style="color:var(--purple)">${long}</div><div class="dcard-sub">≥14 dias</div></div>
     <div class="dcard"><div class="dcard-label">Sem Prev. Alta</div><div class="dcard-val" style="color:var(--red)">${noAlta}</div><div class="dcard-sub">indefinidos</div></div>
+    <div class="dcard"><div class="dcard-label">Altas (total)</div><div class="dcard-val" style="color:var(--green)">${totalAltas}</div><div class="dcard-sub">${totalSaidas} saídas no total</div></div>
+    <div class="dcard"><div class="dcard-label">Transferências (saída)</div><div class="dcard-val" style="color:var(--cyan)">${totalTransfSaida}</div><div class="dcard-sub">pacientes transferidos</div></div>
+    <div class="dcard"><div class="dcard-label">Óbitos</div><div class="dcard-val" style="color:var(--t2)">${totalObitos}</div><div class="dcard-sub">registrados</div></div>
+    <div class="dcard"><div class="dcard-label">Internações no Mês</div><div class="dcard-val" style="color:var(--blue)">${internacoesMes}</div><div class="dcard-sub">${mesAtual.split('-').reverse().join('/')}</div></div>
+    <div class="dcard"><div class="dcard-label">Saídas no Mês</div><div class="dcard-val" style="color:var(--yellow)">${saidasMes}</div><div class="dcard-sub">alta + transferência + óbito</div></div>
     <div class="dcard"><div class="dcard-label">Receita Estimada (SIGTAP)</div><div class="dcard-val" style="color:var(--green);font-size:1.5rem">R$ ${aihTotal.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="dcard-sub">${aihCount} de ${occ} c/ estimativa</div></div>
     <div class="dcard"><div class="dcard-label">Acima da Permanência SIGTAP</div><div class="dcard-val" style="color:var(--yellow)">${aihExcedido}</div><div class="dcard-sub">risco de glosa</div></div>`;
   document.getElementById('dash-recentes').innerHTML = pts.slice(0,5).map(tileHTML).join('');
